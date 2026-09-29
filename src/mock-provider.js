@@ -44,8 +44,9 @@ export function evaluateMock(state, questions) {
       let isTrue = false;
       let prob = 0.15;
 
-      // Detection rules for Anti-Hallucination & Guardrails
-      if (instrLower.includes('viola') || instrLower.includes('violate') || instrLower.includes('quebra') || instrLower.includes('rule') || instrLower.includes('regr')) {
+      // Detection rules for Anti-Hallucination & Guardrails (only if checking violations/infractions)
+      const isViolationQuery = instrLower.includes('viola') || instrLower.includes('quebra') || (instrLower.includes('infring') && instrLower.includes('rule'));
+      if (isViolationQuery) {
         // If state explicitly contains rule breaking patterns (e.g. "import forbidden", "direct db query in controller")
         if (stateLower.includes('violat') || stateLower.includes('forbidden') || stateLower.includes('break_rule') || stateLower.includes('bypasstest')) {
           isTrue = true;
@@ -57,11 +58,13 @@ export function evaluateMock(state, questions) {
       } else if (instrLower.includes('urgent') || instrLower.includes('critical')) {
         isTrue = stateLower.includes('urgent') || stateLower.includes('critical') || stateLower.includes('error');
         prob = isTrue ? 0.91 : 0.10;
-      } else if (instrLower.includes('test') && instrLower.includes('covered')) {
-        isTrue = stateLower.includes('test') || stateLower.includes('spec') || stateLower.includes('assert');
-        prob = isTrue ? 0.88 : 0.20;
-      } else if (instrLower.includes('keep') || instrLower.includes('important')) {
-        isTrue = stateLower.includes('todo') || stateLower.includes('error') || stateLower.includes('function') || stateLower.includes('decision');
+      } else if (instrLower.includes('test') && (instrLower.includes('covered') || instrLower.includes('cobertura') || instrLower.includes('teste'))) {
+        // Checks if tests exist specifically for the tested control rules
+        const matchSpecific = stateLower.includes('.test.') && (stateLower.includes('roles-policy.test') || stateLower.includes('covered_ok') || stateLower.includes('test_covered'));
+        isTrue = matchSpecific;
+        prob = isTrue ? 0.90 : 0.15;
+      } else if (instrLower.includes('keep') || instrLower.includes('important') || instrLower.includes('crític') || instrLower.includes('critic') || instrLower.includes('decis')) {
+        isTrue = stateLower.includes('todo') || stateLower.includes('error') || stateLower.includes('function') || stateLower.includes('decision') || stateLower.includes('decis');
         prob = isTrue ? 0.89 : 0.35;
       }
 
