@@ -45,7 +45,7 @@ export function evaluateMock(state, questions) {
       let prob = 0.15;
 
       // Detection rules for Anti-Hallucination & Guardrails
-      if (instrLower.includes('violate') || instrLower.includes('quebra') || instrLower.includes('rule')) {
+      if (instrLower.includes('viola') || instrLower.includes('violate') || instrLower.includes('quebra') || instrLower.includes('rule') || instrLower.includes('regr')) {
         // If state explicitly contains rule breaking patterns (e.g. "import forbidden", "direct db query in controller")
         if (stateLower.includes('violat') || stateLower.includes('forbidden') || stateLower.includes('break_rule') || stateLower.includes('bypasstest')) {
           isTrue = true;
