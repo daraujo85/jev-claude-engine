@@ -59,6 +59,20 @@ export class JevClient {
       const data = await response.json();
       data.latency_ms = latency;
 
+      // Normalize live JEV noul answers
+      if (data && data.answers) {
+        for (const [k, ans] of Object.entries(data.answers)) {
+          if (ans && ans.type === 'noul') {
+            const raw = ans.noul;
+            const prob = typeof ans.probability === 'number'
+              ? ans.probability
+              : (typeof raw === 'number' ? raw : (raw ? 1.0 : 0.0));
+            ans.noul = typeof raw === 'boolean' ? raw : raw >= 0.50;
+            ans.probability = prob;
+          }
+        }
+      }
+
       recordTelemetry({
         feature: meta.feature || 'unknown',
         provider: this.config.provider,

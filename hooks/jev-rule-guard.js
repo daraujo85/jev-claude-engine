@@ -9,6 +9,7 @@
 import { JevClient } from '../src/client.js';
 import { extractProjectRules } from '../src/rule-parser.js';
 import { QUESTION_TYPES } from '../src/types.js';
+import { renderDiffCard, renderJevCard } from '../src/ui.js';
 
 async function main() {
   let input = '';
@@ -81,10 +82,14 @@ ${fileContent.slice(0, 4000)}
 
   // PRD Rule: If confidence / probability >= 0.80 that rules are violated -> BLOCK with exit code 2
   if (answer && answer.noul === true && (answer.probability || 0) >= 0.80) {
-    const probPct = Math.round((answer.probability || 0) * 100);
-    process.stderr.write(
-      `\n❌ [JEV GUARD BLOQUEIO AUTOMÁTICO]: Operação rejeitada! O JEV detectou que a alteração no arquivo '${filePath}' viola regras do projeto (${probPct}% certeza).\nPor favor, revise o código para aderir às convenções do projeto antes de tentar gravar.\n\n`
-    );
+    const diffCard = renderDiffCard({
+      filePath,
+      ruleViolated: rules[0] || 'Violação de regras de arquitetura ou convenções do projeto',
+      confidence: answer.probability || 0.85,
+      diffSnippet: fileContent.slice(0, 300)
+    });
+
+    process.stderr.write(diffCard);
     process.exit(2); // Claude Code block signal
   }
 

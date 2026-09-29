@@ -1,4 +1,20 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { PROVIDERS } from './types.js';
+
+function getClaudeSettingsKey() {
+  try {
+    const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const data = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      return data?.env?.TYPESAFE_API_KEY || data?.env?.JEV_API_KEY || '';
+    }
+  } catch {
+    // ignore
+  }
+  return '';
+}
 
 export function resolveProviderConfig(options = {}) {
   // If explicitly mock or JEV_MOCK_MODE is enabled
@@ -51,13 +67,14 @@ export function resolveProviderConfig(options = {}) {
     };
   }
 
-  // 2. Direct JEV_API_KEY
-  if (process.env.JEV_API_KEY) {
+  // 2. Direct TYPESAFE_API_KEY or JEV_API_KEY (or from ~/.claude/settings.json)
+  const typeSafeKey = options.apiKey || process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY || getClaudeSettingsKey();
+  if (typeSafeKey) {
     return {
       provider: PROVIDERS.TYPESAFE,
       endpoint: 'https://api.typesafe.ai/v1/systemone',
-      apiKey: options.apiKey || process.env.JEV_API_KEY,
-      timeoutMs: options.timeoutMs || 1500
+      apiKey: typeSafeKey,
+      timeoutMs: options.timeoutMs || 2500
     };
   }
 
