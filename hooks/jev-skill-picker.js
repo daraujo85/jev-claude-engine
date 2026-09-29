@@ -61,12 +61,16 @@ async function main() {
   );
 
   const answer = result?.answers?.selected_skill;
-  if (answer && answer.choice && answer.choice !== 'none' && (answer.confidence || 0) >= 0.70) {
+  const confidence = answer?.confidence || 0;
+  const choiceProb = answer?.probabilities?.[answer?.choice] || confidence;
+
+  if (answer && answer.choice && answer.choice !== 'none' && (confidence >= 0.50 || choiceProb >= 0.50)) {
+    const effectiveProb = Math.max(confidence, choiceProb);
     const card = renderJevCard({
       feature: 'Skill Picker Router',
       target: answer.choice,
       latencyMs: result.latency_ms || 115,
-      confidence: answer.confidence || 0.9,
+      confidence: effectiveProb,
       decision: `Invocando skill: '${answer.choice}'`,
       probabilities: answer.probabilities,
       tokensSaved: skills.length * 350
@@ -74,7 +78,7 @@ async function main() {
 
     process.stderr.write(card);
     process.stdout.write(
-      `\n[JEV ROUTER: Invocar skill '${answer.choice}' (${Math.round((answer.confidence || 0) * 100)}% certeza). Não carregar outras skills.]\n`
+      `\n[JEV ROUTER: Invocar skill '${answer.choice}' (${Math.round(effectiveProb * 100)}% certeza). Não carregar outras skills.]\n`
     );
   }
 
