@@ -6,7 +6,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { readTelemetrySummary } from '../src/telemetry.js';
+import { startDashboardServer } from '../src/dashboard.js';
 import { JevClient } from '../src/client.js';
 import { QUESTION_TYPES } from '../src/types.js';
 
@@ -89,6 +92,16 @@ async function main() {
   if (cmd === 'gain') {
     const showHistory = args.includes('--history');
     await showGain(showHistory);
+  } else if (cmd === 'dashboard' || cmd === 'ui') {
+    const portArg = args.find(a => a.startsWith('--port='));
+    const port = portArg ? parseInt(portArg.split('=')[1], 10) : 3838;
+    const noOpen = args.includes('--no-open');
+    startDashboardServer({ port, openBrowser: !noOpen, projectDir: process.cwd() });
+  } else if (cmd === 'browser') {
+    const goal = args.slice(1).join(' ').trim() || 'Acessar página inicial';
+    const scriptPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../skills/jev-browser-test/run-harness.py');
+    const res = spawnSync('python3', [scriptPath, goal], { stdio: 'inherit' });
+    process.exit(res.status || 0);
   } else if (cmd === 'test') {
     await testConnection();
   } else if (cmd === '--version' || cmd === '-v') {
@@ -97,8 +110,11 @@ async function main() {
     console.log('Comandos disponíveis:');
     console.log('  jev gain            Exibe estatísticas de tokens e velocidade');
     console.log('  jev gain --history  Exibe histórico das decisões');
+    console.log('  jev dashboard       Abre dashboard web sob demanda em http://localhost:3838');
+    console.log('  jev browser <meta>  Navegação rápida acelerada via Browser Harness');
     console.log('  jev test            Testa conexão com a API do JEV');
   }
+
 }
 
 main().catch(err => {

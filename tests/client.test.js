@@ -64,4 +64,7 @@ test('T5: Telemetry records decisions and calculates summary correctly', async (
   const summary = readTelemetrySummary();
   assert.ok(summary.total_decisions >= 2);
   assert.ok(summary.total_tokens_saved >= 20000);
+  assert.ok(typeof summary.by_feature === 'object');
+  assert.ok(Array.isArray(summary.recent_entries));
 });
+
