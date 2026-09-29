@@ -18,7 +18,8 @@ export function evaluateMock(state, questions) {
         const desc = (q.criteria[optKey] || '').toLowerCase();
         let matches = 0;
         const words = optKey.split(/[-_]/).concat(desc.split(/\s+/));
-        for (const w of words) {
+        for (let w of words) {
+          w = w.replace(/[^a-z0-9]/gi, '').toLowerCase();
           if (w.length > 2 && stateLower.includes(w)) {
             matches += 1;
           }
