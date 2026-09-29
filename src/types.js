@@ -38,6 +38,18 @@ export function validateQuestion(key, question) {
     }
   }
 
+  if (question.type === QUESTION_TYPES.SCORE) {
+    if (!question.criteria || !Array.isArray(question.criteria)) {
+      question.criteria = [
+        'Muito fraco / ineficaz',
+        'Superficial / paliativo',
+        'Razoável / mediano',
+        'Bom / resolve com segurança',
+        'Excelente / definitivo e robusto'
+      ];
+    }
+  }
+
   return true;
 }
 
