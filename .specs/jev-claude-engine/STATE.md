@@ -26,6 +26,9 @@
 | **DEC-003** | Preserving Existing Claude Code Hooks & BoltContext Removal | Removed BoltContext hook as requested, chained JEV hooks cleanly alongside `rtk-rewrite.sh` and `tts-summary.sh`. | Clean, conflict-free hook pipeline. |
 | **DEC-004** | Built-in Token & Latency Telemetry (`jev gain`) | User specifically asked to audit ROI. Recorded in `.jev/telemetry.jsonl` with CLI viewer. | Auditable proof of tokens and latency reduction. |
 | **DEC-005** | Hybrid Discovery Pipeline (Graphify ➔ GrepAI ➔ JEV ➔ Claude) | Combines structural graph relationships, vector search, and JEV micro-scoring before Claude reads code. | Drastically cuts token waste and finds exact target files. |
+| **DEC-006** | Browser Harness Autonomous JEV Pilot | Injects `agent_helpers.py` into Browser Harness workspace to enable 150-300ms element selection, clicking, and semantic verification directly in CDP. | Turns multi-step web tests from 60s of slow LLM queries into a 2s sub-second loop. |
+| **DEC-007** | On-Demand Telemetry Dashboard (`jev dashboard`) | Zero-dependency Node.js HTTP server started only on user demand. Exits cleanly with Ctrl+C, releasing 100% of memory and ports. | Zero background daemon footprint; instant visual ROI on tokens & costs. |
+| **DEC-008** | Multi-Agent Universal Compatibility | Skills and rules mirrored across Claude Code, Antigravity (AGY), OpenCode, and Codex CLI. | Consistent 300ms deterministic decisions everywhere the user develops. |
 
 ---
 
@@ -36,7 +39,13 @@
 3. **Caso 3: The Skill Picker (Hook de Roteamento)** — `hooks/jev-skill-picker.js`
 4. **Caso 4: Smart File Explorer (Skill)** — `skills/jev-explore/`
 5. **Caso 5: Pré-Filtro de Code Review (Skill/Hook)** — `skills/jev-review/`
-6. **Caso 6: Browser UI Testing Autônomo (Skill)** — `skills/jev-browser-test/`
+6. **Caso 6: Browser UI Testing Autônomo & Browser Harness (Skill)** — `skills/jev-browser-test/`
 7. **Caso 7: Bloqueador Anti-Alucinação (Hook)** — `hooks/jev-rule-guard.js`
 8. **Extra: Hybrid Discovery Pipeline** — `skills/jev-discover/`
-9. **CLI Analítico:** `bin/jev.js` (`jev gain`, `jev test`)
+9. **Extra: Sentinel Anti-Regressão** — `skills/jev-anti-regression/`
+10. **Extra: Bugfix Plan & Hypothesis Evaluator** — `skills/jev-plan-evaluator/`
+11. **Extra: Browser Harness Acceleration** — `skills/jev-browser-test/agent_helpers.py`, `run-harness.py`
+12. **Extra: On-Demand Web Dashboard** — `src/dashboard.js` (`jev dashboard` em `http://localhost:3838`)
+13. **CLI Analítico:** `bin/jev.js` (`jev gain`, `jev gain --history`, `jev dashboard`, `jev browser`, `jev test`)
+14. **Sessão Tmux `planner`:** Configurada e validada para uso imediato no projeto `pvax`.
+
