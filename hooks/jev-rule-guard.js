@@ -68,24 +68,45 @@ ${fileContent.slice(0, 4000)}
       violates_rule: {
         type: QUESTION_TYPES.NOUL,
         instructions: 'Avalie se o código proposto viola direta ou indiretamente alguma das regras ou diretrizes de arquitetura especificadas no projeto.'
+      },
+      breaks_public_contract: {
+        type: QUESTION_TYPES.NOUL,
+        instructions: 'Esta alteração quebra, renomeia ou remove assinaturas de funções públicas/exportadas existentes que outros módulos já utilizam?'
+      },
+      weakens_existing_behavior: {
+        type: QUESTION_TYPES.NOUL,
+        instructions: 'O código deleta, desativa ou enfraquece lógica funcional pré-existente ou testes existentes ao invés de estendê-los com compatibilidade?'
       }
     },
     {
-      feature: 'rule-guard',
-      tokensSpared: 4000,
-      llmLatency: 2800,
+      feature: 'rule-and-regression-guard',
+      tokensSpared: 6000,
+      llmLatency: 3200,
       projectDir: cwd
     }
   );
 
-  const answer = result?.answers?.violates_rule;
+  const answers = result?.answers || {};
+  const ruleViolation = answers.violates_rule?.noul === true && (answers.violates_rule?.probability || 0) >= 0.80;
+  const contractRegression = answers.breaks_public_contract?.noul === true && (answers.breaks_public_contract?.probability || 0) >= 0.85;
+  const logicRegression = answers.weakens_existing_behavior?.noul === true && (answers.weakens_existing_behavior?.probability || 0) >= 0.85;
 
-  // PRD Rule: If confidence / probability >= 0.80 that rules are violated -> BLOCK with exit code 2
-  if (answer && answer.noul === true && (answer.probability || 0) >= 0.80) {
+  if (ruleViolation || contractRegression || logicRegression) {
+    let reason = 'Violação de regras de arquitetura ou convenções do projeto';
+    let prob = answers.violates_rule?.probability || 0.85;
+
+    if (contractRegression) {
+      reason = 'REGRESSÃO DETECTADA: Quebra ou remoção de assinatura pública/contrato existente';
+      prob = answers.breaks_public_contract?.probability || prob;
+    } else if (logicRegression) {
+      reason = 'REGRESSÃO DETECTADA: Deleção ou enfraquecimento de lógica funcional pré-existente';
+      prob = answers.weakens_existing_behavior?.probability || prob;
+    }
+
     const diffCard = renderDiffCard({
       filePath,
-      ruleViolated: rules[0] || 'Violação de regras de arquitetura ou convenções do projeto',
-      confidence: answer.probability || 0.85,
+      ruleViolated: reason,
+      confidence: prob,
       diffSnippet: fileContent.slice(0, 300)
     });
 
