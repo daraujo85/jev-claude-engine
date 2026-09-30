@@ -732,7 +732,7 @@ export function createDashboardHtml(initialData, projectDir) {
         <div class="config-actions">
           <button class="btn btn-primary" onclick="saveConfig()">Save</button>
           <button class="btn" onclick="testRouter()">Test connection</button>
-          <span class="save-msg" id="save-msg"></span>
+          <span class="save-msg" id="router-msg"></span>
         </div>
       </div>
     </div>
@@ -1235,8 +1235,10 @@ function projectShort(p) {
       if (p) p.value = price !== undefined ? price : 0.04;
       if (b) b.value = bal !== undefined ? bal : 5;
       if (key) {
-        key.value = jevConfig?.jev?.api_key || '';
+        fullApiKey = jevConfig?.jev?.api_key || '';
+        key.value = fullApiKey;
         maskApiKeyInput();
+        syncApiKeyOnInput();
       }
       updateRemainingBalance();
     }
@@ -1355,22 +1357,34 @@ function projectShort(p) {
     function maskApiKeyInput() {
       const k = document.getElementById('cfg-api-key');
       if (!k) return;
-      fullApiKey = k.value || '';
       k.dataset.revealed = '0';
-      const v = fullApiKey;
+      const v = fullApiKey || '';
       if (v.length > 12) k.value = v.slice(0, 12) + '…';
       else if (v) k.value = '••••' + v.slice(-4);
+      else k.value = '';
+    }
+    function syncApiKeyOnInput() {
+      const k = document.getElementById('cfg-api-key');
+      if (!k) return;
+      k.addEventListener('input', () => {
+        const typed = k.value;
+        if (typed && typed.includes('…')) return;
+        if (typed === '••••' + fullApiKey.slice(-4)) return;
+        fullApiKey = typed;
+      });
     }
 
     let fullRouterKey = '';
     function maskRouterKeyInput() {
       const k = document.getElementById('cfg-router-key');
       if (!k) return;
-      fullRouterKey = k.value || '';
+      // mask from fullRouterKey; do NOT clobber it with the (possibly
+      // empty) input value, otherwise a key loaded from config disappears.
       k.dataset.revealed = '0';
-      const v = fullRouterKey;
+      const v = fullRouterKey || '';
       if (v.length > 12) k.value = v.slice(0, 12) + '…';
       else if (v) k.value = '••••' + v.slice(-4);
+      else k.value = '';
     }
     function syncRouterKeyOnInput() {
       const k = document.getElementById('cfg-router-key');
@@ -1399,19 +1413,21 @@ function projectShort(p) {
       }
     }
     async function testRouter() {
-      const msg = document.getElementById('save-msg');
+      const msg = document.getElementById('router-msg');
       const url = document.getElementById('cfg-router-url').value.trim();
       const key = document.getElementById('cfg-router-key') ? fullRouterKey || document.getElementById('cfg-router-key').value : '';
       msg.innerText = 'Testing…';
       try {
-        const res = await fetch(url.replace(/[\\/]+$/, '') + '/v1/models', {
-          headers: { Authorization: 'Bearer ' + key }
+        // route through the server (browser fetch to the 9Router is CORS-blocked)
+        const res = await fetch('/api/router/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ baseUrl: url, apiKey: key })
         });
-        if (!res.ok) { msg.className = 'save-msg err'; msg.innerText = 'HTTP ' + res.status; return; }
         const data = await res.json();
-        const n = (data?.data || []).length;
+        if (!data.success) { msg.className = 'save-msg err'; msg.innerText = data.error || 'failed'; return; }
         msg.className = 'save-msg';
-        msg.innerText = 'OK — ' + n + ' models';
+        msg.innerText = 'OK — ' + data.count + ' models';
       } catch (e) {
         msg.className = 'save-msg err';
         msg.innerText = 'Connection failed: ' + (e.message || e);
@@ -1435,6 +1451,24 @@ function projectShort(p) {
         if (msg) { msg.className = 'save-msg err'; msg.innerText = String(e.message || e); }
       }
     }
+    // --- per-task SVG marks for suggested combos ---
+    const TASK_ICONS = {
+      'planning_architecture': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9M12 9v12"/></svg>',
+      'writing_code': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9l-4 3 4 3M16 9l4 3-4 3M13 5l-2 14"/></svg>',
+      'refactoring': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h6M14 12h6M14 8l4 4-4 4M10 8l-4 4 4 4"/></svg>',
+      'tests': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h10M4 17h7"/><circle cx="18" cy="17" r="3"/><path d="M18 15v2l1.5 1.5"/></svg>',
+      'docs': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h14a1 1 0 0 1 1 1v15H6a2 2 0 0 1-2-2z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+      'code_review': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10H7a3 3 0 0 0-3 3z"/><path d="M8 9h8M8 12h8M8 15h4"/></svg>',
+      'debugging': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v3a2 2 0 0 0 4 0V3"/><path d="M5 12h14"/><path d="M12 8v9"/><circle cx="12" cy="17" r="4"/><path d="M8.5 17h7"/></svg>',
+      'data_analysis': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>',
+      'creative_writing': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2 4 4.5.5-3.5 3L16 15l-4-2-4 2 1-4.5-3.5-3L10 7z"/></svg>',
+      'transcription': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+      'research': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>',
+      'general': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M8.5 9h5a2 2 0 0 1 0 4h-3a2 2 0 0 0 0 4h5"/></svg>'
+    };
+    function taskIcon(task) {
+      return TASK_ICONS[task] || TASK_ICONS.general;
+    }
     function renderRouterCombos(combos) {
       const box = document.getElementById('router-combos');
       if (!box) return;
@@ -1446,7 +1480,7 @@ function projectShort(p) {
         combos.map(c => {
           const models = [c.primary, ...(c.failover || [])];
           return '<div class="cfg-item">' +
-            '<div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 8h18M7 15h3"/><circle cx="17" cy="15" r="1.6"/></svg></div>' +
+            '<div class="cfg-icon">' + taskIcon(c.task) + '</div>' +
             '<div class="cfg-meta"><div class="cfg-name">' + c.name + '</div>' +
             '<div class="cfg-desc">' + c.task.replace(/_/g, ' ') + '</div></div>' +
             '<div class="cfg-controls" style="flex-direction:column;align-items:flex-end;gap:4px;">' +
@@ -1533,6 +1567,32 @@ export function startDashboardServer(options = {}) {
       const merged = resetConfig();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, config: merged }));
+      return;
+    }
+
+    // Test 9Router connectivity server-side (browser fetch is CORS-blocked).
+    if (urlPath === '/api/router/test' && req.method === 'POST') {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      try {
+        const { baseUrl, apiKey } = JSON.parse(body || '{}');
+        const cfg = loadConfig();
+        const url = (baseUrl || cfg.router?.base_url || 'http://localhost:20128').replace(/[\\/]+$/, '');
+        const key = apiKey || cfg.router?.api_key || '';
+        const upstream = await fetch(url + '/v1/models', { headers: { Authorization: 'Bearer ' + key } });
+        if (!upstream.ok) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'HTTP ' + upstream.status }));
+          return;
+        }
+        const data = await upstream.json();
+        const n = (data?.data || []).length;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, count: n }));
+      } catch (e) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: String(e.message || e) }));
+      }
       return;
     }
 
