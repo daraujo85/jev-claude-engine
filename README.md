@@ -171,14 +171,18 @@ node -e "import('./src/jev-config.js').then(({loadConfig,saveConfig})=>{const c=
 Translations live in `src/i18n.js` — add a key to all five dictionaries to
 cover a new string.
 
-**Task → subagent routing (inside Claude Code, no tmux).** When you type a
-free-text prompt, the `jev-task-router` hook classifies it (System One,
-zero generative LLM) and injects a delegation directive. If the task matches
-a JEV subagent — `jev-writing-code`, `jev-docs`, `jev-debugging`, … (one per
-task type, generated into `~/.claude/agents/`) — Claude Code delegates it to
-that subagent, which runs on the combo mapped in `router.task_combos`
-(`claude-coder`, `claude-tools`, `claude-tudao`). Validated end-to-end:
-Pong → `claude-coder` → `cc/claude-haiku-4-5`, 7 tests, real gateway logs.
+### Task → subagent routing (inside Claude Code, no tmux)
+
+When you type a free-text prompt, the `jev-task-router` hook classifies it
+with JEV System One (zero generative LLM) and injects a delegation directive.
+
+**Flow:**
+
+1. **Classify** — JEV maps the prompt to a task type (`writing_code`, `docs`, `debugging`, …).
+2. **Match** — if the task matches a JEV subagent (`jev-writing-code`, `jev-docs`, `jev-debugging`, … — one per task type, generated into `~/.claude/agents/`), Claude Code delegates the work to it.
+3. **Route** — the subagent runs on the combo mapped in `router.task_combos` (`claude-coder`, `claude-tools`, `claude-tudao`).
+
+**Validated end-to-end:** Pong → `claude-coder` → `cc/claude-haiku-4-5`, 7 tests passing, real 9Router gateway logs confirming the combo + model used.
 
 **Project Discovery — architecture, code style & design system.** 
 `node scripts/jev-profile.js` scans a repo and writes
