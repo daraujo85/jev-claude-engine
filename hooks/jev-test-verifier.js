@@ -105,7 +105,8 @@ ${JSON.stringify(toolInput).slice(0, 2500)}
   const answer = result?.answers?.has_test_coverage;
   // If not covered, warn via systemMessage (visible in TUI) +
   // additionalContext so Claude can act on it.
-  if (answer && answer.noul === false) {
+  const warnOnMissing = cfg?.hooks?.['jev-test-verifier']?.warn_on_missing_tests !== false;
+  if (warnOnMissing && answer && answer.noul === false) {
     const confidence = Math.round((1 - (answer.probability || 0.2)) * 100);
     const filename = path.basename(filePath);
     process.stdout.write(JSON.stringify({

@@ -8,10 +8,15 @@ import os from 'node:os';
 import path from 'node:path';
 
 export const DEFAULT_CONFIG = {
+  pricing: {
+    price_per_million_input: 0.04,
+    initial_balance_usd: 5.0
+  },
   hooks: {
     'jev-rule-guard': {
       enabled: true,
       confidence_threshold: 0.80,
+      block_rule_violation: true,
       block_contract_break: true,
       block_logic_weakening: true
     },
@@ -26,6 +31,7 @@ export const DEFAULT_CONFIG = {
     },
     'jev-test-verifier': {
       enabled: true,
+      warn_on_missing_tests: true,
       control_file_pattern: '(auth|role|permission|policy|guard|rule|access|payment|billing|session)'
     }
   },
@@ -33,7 +39,7 @@ export const DEFAULT_CONFIG = {
     'jev-discover': { enabled: true, top_files: 3 },
     'jev-explore': { enabled: true, batch_size: 20, top_files: 3 },
     'jev-review': { enabled: true, confidence_threshold: 0.50 },
-    'jev-anti-regression': { enabled: true, confidence_threshold: 0.75 },
+    'jev-anti-regression': { enabled: true, confidence_threshold: 0.75, min_severity: 'medium' },
     'jev-plan-evaluator': { enabled: true, min_score: 2.5 },
     'jev-browser-test': { enabled: true, max_steps: 10 }
   }

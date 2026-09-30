@@ -2,6 +2,7 @@ import { validatePayload, PROVIDERS } from './types.js';
 import { resolveProviderConfig } from './providers.js';
 import { evaluateMock } from './mock-provider.js';
 import { recordTelemetry } from './telemetry.js';
+import { loadConfig } from './jev-config.js';
 
 export class JevClient {
   constructor(options = {}) {
@@ -76,8 +77,12 @@ export class JevClient {
       // Real JEV cost from actual input tokens (JEV = $0.04/M input, $0 output).
       // Falls back to a fixed estimate when the API omits usage.
       const inputTokens = data?.usage?.input_tokens || meta.inputTokens || 0;
+      const cfg = loadConfig();
+      const pricePerM = Number(cfg?.pricing?.price_per_million_input) > 0
+        ? Number(cfg.pricing.price_per_million_input)
+        : 0.04;
       const jevCostUsd = inputTokens > 0
-        ? (inputTokens / 1_000_000) * 0.04
+        ? (inputTokens / 1_000_000) * pricePerM
         : 0.000008;
 
       recordTelemetry({

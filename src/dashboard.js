@@ -428,7 +428,7 @@ export function createDashboardHtml(initialData, projectDir) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10m6 10V4m6 16v-7m6 7H2"/></svg>
         Hooks &amp; Skills
       </a>
-      <a href="#" class="nav-item" onclick="showView('telemetry')">
+      <a href="#" class="nav-item" data-view="guardrails" onclick="showView('guardrails')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>
         Guardrails
       </a>
@@ -628,6 +628,24 @@ export function createDashboardHtml(initialData, projectDir) {
             <label class="cfg-field" id="cfg-remaining-balance" style="font-size:13px; color:var(--good); font-weight:600;">…</label>
           </div>
         </div>
+
+        <div class="config-actions">
+          <button class="btn btn-primary" onclick="saveConfig()">Save</button>
+          <button class="btn" onclick="resetConfig()">Reset to defaults</button>
+          <span class="save-msg" id="save-msg"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW: Guardrails -->
+    <div id="view-guardrails" style="display:none;">
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Guardrails</div>
+          <div class="section-note">what JEV blocks vs. only warns about</div>
+        </div>
+        <div id="guardrails-hooks"></div>
+        <div id="guardrails-skills"></div>
 
         <div class="config-actions">
           <button class="btn btn-primary" onclick="saveConfig()">Save</button>
@@ -990,10 +1008,28 @@ function projectShort(p) {
         fields: [['max_steps', 10]]
       }
     };
+    const GUARD_GR_META = {
+      name: 'Rule Guard', desc: 'what JEV blocks before a file write/edit',
+      tip: 'Runs before every file write/edit (PreToolUse). Each rule can be toggled independently: rule violations, public contract breaks, and weakened existing logic. All three respect the shared confidence threshold.',
+      fields: [['block_rule_violation', true], ['block_contract_break', true], ['block_logic_weakening', true], ['confidence_threshold', 0.80]]
+    };
+    const GUARD_TV_META = {
+      name: 'Test Verifier', desc: 'test coverage alerting on control files',
+      tip: 'Runs after edits on control-domain files (auth, roles, permissions, billing...). When coverage is missing it warns in the TUI unless the warning is disabled.',
+      fields: [['warn_on_missing_tests', true], ['control_file_pattern', 'regex']]
+    };
+    const GUARD_AR_META = {
+      name: 'Anti-Regression', desc: 'regression risk on diffs',
+      tip: 'Analyzes the diff for regressions: broken public signatures, deleted/weakened logic, weakened tests, shared-state side effects. Signals above the severity threshold are surfaced.',
+      fields: [['min_severity', 'medium'], ['confidence_threshold', 0.75]]
+    };
     const FIELD_LABELS = {
       confidence_threshold: 'Min confidence',
+      block_rule_violation: 'Block rule violation',
       block_contract_break: 'Block contract break',
       block_logic_weakening: 'Block logic weakening',
+      warn_on_missing_tests: 'Warn on missing tests',
+      min_severity: 'Min severity',
       min_skills: 'Min skills',
       usage_threshold: 'Usage %',
       control_file_pattern: 'Control pattern',
@@ -1021,10 +1057,20 @@ function projectShort(p) {
     function fieldLabel(f) {
       return FIELD_LABELS[f] || f.replace(/_/g, ' ');
     }
-    function cfgItemHTML(kind, name, meta, enabled) {
+    function cfgItemBody(kind, name, meta, enabled) {
       const fields = (meta.fields || []).map(([f, defaultVal]) => {
         const v = jevConfig[kind]?.[name]?.[f];
         const val = v === undefined ? defaultVal : v;
+        if (f === 'min_severity') {
+          return '<label class="cfg-field">' + fieldLabel(f) +
+            '<select data-kind="' + kind + '" data-name="' + name + '" data-field="' + f + '">' +
+            ['low', 'medium', 'high', 'critical'].map(o => '<option value="' + o + '"' + (val === o ? ' selected' : '') + '>' + o + '</option>').join('') +
+            '</select></label>';
+        }
+        if (typeof defaultVal === 'string' || f === 'control_file_pattern') {
+          return '<label class="cfg-field">' + fieldLabel(f) +
+            '<input type="text" data-kind="' + kind + '" data-name="' + name + '" data-field="' + f + '" value="' + escapeAttr(val) + '" style="width:150px"></label>';
+        }
         if (typeof defaultVal === 'boolean') {
           return '<label class="cfg-field">' + fieldLabel(f) +
             '<input type="checkbox" data-kind="' + kind + '" data-name="' + name + '" data-field="' + f + '" ' + (val ? 'checked' : '') + '></label>';
@@ -1033,21 +1079,32 @@ function projectShort(p) {
           '<input type="number" step="any" data-kind="' + kind + '" data-name="' + name + '" data-field="' + f + '" value="' + val + '"></label>';
       }).join('');
       const icon = CFG_ICONS[name] || '';
-      return '<div class="cfg-item">' +
-        '<div class="cfg-icon">' + icon + '</div>' +
+      return '<div class="cfg-icon">' + icon + '</div>' +
         '<div class="cfg-meta"><div class="cfg-name">' + meta.name +
         '<button class="cfg-info" type="button" aria-label="How this works" data-tip="' + escapeAttr(meta.tip) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1.5 1-1.5 2v.7"/><circle cx="11.5" cy="17" r="0.4" fill="currentColor"/></svg></button>' +
         '</div><div class="cfg-desc">' + meta.desc + '</div></div>' +
         '<div class="cfg-controls">' + fields +
         '<label class="toggle" title="Enable / disable"><input type="checkbox" data-kind="' + kind + '" data-name="' + name + '" data-field="enabled" ' + (enabled ? 'checked' : '') + '><span class="slider"></span></label>' +
-        '</div></div>';
+        '</div>';
+    }
+    function cfgItemHTML(kind, name, meta, enabled) {
+      return '<div class="cfg-item">' + cfgItemBody(kind, name, meta, enabled) + '</div>';
     }
 
     function renderConfig() {
       const hooks = document.getElementById('config-hooks');
       const skills = document.getElementById('config-skills');
+      const grHooks = document.getElementById('guardrails-hooks');
+      const grSkills = document.getElementById('guardrails-skills');
       hooks.innerHTML = Object.entries(HOOK_META).map(([n, m]) => cfgItemHTML('hooks', n, m, jevConfig.hooks?.[n]?.enabled !== false)).join('');
       skills.innerHTML = Object.entries(SKILL_META).map(([n, m]) => cfgItemHTML('skills', n, m, jevConfig.skills?.[n]?.enabled !== false)).join('');
+      if (grHooks) {
+        grHooks.innerHTML = '<div class="cfg-item">' + cfgItemBody('hooks', 'jev-rule-guard', GUARD_GR_META, jevConfig.hooks?.['jev-rule-guard']?.enabled !== false) + '</div>' +
+          '<div class="cfg-item">' + cfgItemBody('hooks', 'jev-test-verifier', GUARD_TV_META, jevConfig.hooks?.['jev-test-verifier']?.enabled !== false) + '</div>';
+      }
+      if (grSkills) {
+        grSkills.innerHTML = '<div class="cfg-item">' + cfgItemBody('skills', 'jev-anti-regression', GUARD_AR_META, jevConfig.skills?.['jev-anti-regression']?.enabled !== false) + '</div>';
+      }
 
       const price = jevConfig?.pricing?.price_per_million_input;
       const bal = jevConfig?.pricing?.initial_balance_usd;
@@ -1081,6 +1138,7 @@ function projectShort(p) {
     const VIEWS = {
       telemetry: { title: 'System telemetry', crumb: 'JEV System One · real-time decisions', refresh: true },
       config: { title: 'Hooks & Skills', crumb: 'toggle and tune JEV hooks · saved to ~/.jev/config.json', refresh: false },
+      guardrails: { title: 'Guardrails', crumb: 'what JEV blocks vs. warns · saved to ~/.jev/config.json', refresh: false },
       settings: { title: 'Settings', crumb: 'pricing and balance · saved to ~/.jev/config.json', refresh: false }
     };
     function viewFromQuery() {
@@ -1089,7 +1147,7 @@ function projectShort(p) {
     }
     function showView(name) {
       if (!VIEWS[name]) name = 'telemetry';
-      ['telemetry', 'config', 'settings'].forEach(v => {
+      ['telemetry', 'config', 'guardrails', 'settings'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
       });
       document.getElementById('page-title').innerText = VIEWS[name].title;
@@ -1108,11 +1166,22 @@ function projectShort(p) {
     window.addEventListener('popstate', () => showView(viewFromQuery()));
 
     function collectConfig() {
-      const out = { hooks: {}, skills: {}, pricing: {} };
-      document.querySelectorAll('[data-kind][data-name]').forEach(inp => {
+      const out = { hooks: {}, skills: {}, pricing: {}
+      };
+      // Only read inputs from the currently visible view to avoid
+      // duplicated fields (rule-guard/test-verifier appear in both
+      // Hooks&Skills and Guardrails).
+      const visible = ['view-config', 'view-guardrails', 'view-settings'].find(id => {
+        const el = document.getElementById(id);
+        return el && getComputedStyle(el).display !== 'none';
+      }) || 'view-config';
+      document.querySelectorAll('#' + visible + ' [data-kind][data-name]').forEach(inp => {
         const kind = inp.dataset.kind, name = inp.dataset.name, field = inp.dataset.field;
         out[kind][name] = out[kind][name] || {};
-        out[kind][name][field] = inp.type === 'checkbox' ? inp.checked : Number(inp.value);
+        if (inp.type === 'checkbox') out[kind][name][field] = inp.checked;
+        else if (inp.tagName === 'SELECT') out[kind][name][field] = inp.value;
+        else if (inp.type === 'text') out[kind][name][field] = inp.value;
+        else out[kind][name][field] = Number(inp.value);
       });
       const price = document.getElementById('cfg-price-per-m');
       const bal = document.getElementById('cfg-initial-balance');

@@ -59,6 +59,7 @@ async function main() {
   }
   const hookCfg = cfg?.hooks?.['jev-rule-guard'] || {};
   const confThreshold = typeof hookCfg.confidence_threshold === 'number' ? hookCfg.confidence_threshold : 0.80;
+  const blockRule = hookCfg.block_rule_violation !== false;
   const blockContract = hookCfg.block_contract_break !== false;
   const blockLogic = hookCfg.block_logic_weakening !== false;
 
@@ -98,7 +99,7 @@ ${fileContent.slice(0, 4000)}
   );
 
   const answers = result?.answers || {};
-  const ruleViolation = answers.violates_rule?.noul === true && (answers.violates_rule?.probability || 0) >= confThreshold;
+  const ruleViolation = blockRule && answers.violates_rule?.noul === true && (answers.violates_rule?.probability || 0) >= confThreshold;
   const contractRegression = blockContract && answers.breaks_public_contract?.noul === true && (answers.breaks_public_contract?.probability || 0) >= confThreshold;
   const logicRegression = blockLogic && answers.weakens_existing_behavior?.noul === true && (answers.weakens_existing_behavior?.probability || 0) >= confThreshold;
 
