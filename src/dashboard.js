@@ -579,6 +579,9 @@ export function createDashboardHtml(initialData, projectDir) {
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
       ));
     }
+    function escapeAttr(s) {
+      return escapeHtml(String(s || ''));
+    }
     // --- per-agent SVG marks (real brand shapes, colors follow dashboard tokens) ---
     const AGENT_SVGS = {
       // OpenCode (anomalyco) — stepped O
@@ -602,7 +605,8 @@ export function createDashboardHtml(initialData, projectDir) {
     function originLabel(e) {
       const agent = e.origin_agent || 'unknown';
       const proj = projectShort(e.origin_project);
-      return agentSvg(agent) + '<span>' + escapeHtml(agentLabel(agent)) + (proj ? ' · ' + escapeHtml(proj) : '') + '</span>';
+      const full = e.origin_project ? String(e.origin_project) : '';
+      return agentSvg(agent) + '<span title="' + escapeAttr(agentLabel(agent) + (full ? ' · ' + full : '')) + '">' + escapeHtml(agentLabel(agent)) + (proj ? ' · ' + escapeHtml(proj) : '') + '</span>';
     }
 function projectShort(p) {
       if (!p) return '';
