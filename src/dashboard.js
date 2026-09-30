@@ -7,6 +7,8 @@ import { readTelemetrySummary } from './telemetry.js';
 import { loadConfig, saveConfig, resetConfig, DEFAULT_CONFIG } from './jev-config.js';
 import { listModels, profileModels, suggestCombos, routerFeatures } from './model-router.js';
 import { STRINGS, DEFAULT_LANG, currentLang } from './i18n.js';
+import { envKey } from './providers.js';
+import { gatewayToken } from './model-router.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // AI-generated logo (Gemini, see docs/jev-logo.png) served as /logo.png.
@@ -1250,7 +1252,7 @@ function projectShort(p) {
       const rUrl = document.getElementById('cfg-router-url');
       const rKey = document.getElementById('cfg-router-key');
       if (rUrl) rUrl.value = jevConfig?.router?.base_url || 'http://localhost:20128';
-      if (rKey) { fullRouterKey = jevConfig?.router?.api_key || ''; maskRouterKeyInput(); syncRouterKeyOnInput(); }
+      if (rKey) { fullRouterKey = jevConfig?.router?.api_key || gatewayToken() || ''; maskRouterKeyInput(); syncRouterKeyOnInput(); }
       renderRouterCombos(jevConfig?.router?.suggested_combos || []);
       const rf = document.getElementById('router-features');
       if (rf) {
@@ -1278,7 +1280,7 @@ function projectShort(p) {
       if (p) p.value = price !== undefined ? price : 0.04;
       if (b) b.value = bal !== undefined ? bal : 5;
       if (key) {
-        fullApiKey = jevConfig?.jev?.api_key || '';
+        fullApiKey = jevConfig?.jev?.api_key || envKey() || '';
         key.value = fullApiKey;
         maskApiKeyInput();
         syncApiKeyOnInput();
@@ -1594,8 +1596,14 @@ export function startDashboardServer(options = {}) {
 
     if (urlPath === '/api/config') {
       if (req.method === 'GET') {
+        const cfg = loadConfig();
+        // surface resolved keys (env / ~/.claude/settings.json) when the
+        // stored config has none, so the Settings/9Router views show the
+        // active key instead of a blank field. Not persisted.
+        if (!cfg.jev?.api_key) cfg.jev = { ...(cfg.jev || {}), api_key: envKey() };
+        if (!cfg.router?.api_key) cfg.router = { ...(cfg.router || {}), api_key: gatewayToken() };
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(loadConfig()));
+        res.end(JSON.stringify(cfg));
         return;
       }
       if (req.method === 'PUT') {

@@ -31,7 +31,7 @@ function getConfigKey() {
   return '';
 }
 
-function envKey() {
+export function envKey() {
   return process.env.JEV_API_KEY || process.env.TYPESAFE_API_KEY || getConfigKey() || getClaudeSettingsKey();
 }
 
