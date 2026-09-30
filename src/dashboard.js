@@ -668,6 +668,12 @@ export function createDashboardHtml(initialData, projectDir) {
           </div>
         </div>
 
+        <div class="section-head" style="margin-top:22px;">
+          <div class="section-title">Features</div>
+          <div class="section-note">toggle JEV routing behaviors on/off</div>
+        </div>
+        <div id="router-features"></div>
+
         <div class="config-actions">
           <button class="btn btn-primary" onclick="saveConfig()" data-i18n="save">Save</button>
           <button class="btn" onclick="resetConfig()">Reset to defaults</button>
@@ -723,12 +729,6 @@ export function createDashboardHtml(initialData, projectDir) {
             <button class="btn" type="button" onclick="toggleRouterKey()">Reveal</button>
           </div>
         </div>
-
-        <div class="section-head" style="margin-top:22px;">
-          <div class="section-title">Features</div>
-          <div class="section-note">toggle JEV routing behaviors on/off</div>
-        </div>
-        <div id="router-features"></div>
 
         <div class="section-head" style="margin-top:22px;">
           <div class="section-title">Model profiler</div>
