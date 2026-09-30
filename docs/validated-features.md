@@ -60,3 +60,19 @@ comando de teste. Depois de ok → dashboard com toggle + tooltip.
 - **O que**: nomes de combo `claude-<task>` (ex: `claude-writing-code`),
   não `jev-*`. Claude Code só aceita prefixo `claude`.
 - **Validado**: profiler + subagents usam `claude-*` sem warning bloqueante.
+
+## 6. Estado dos harnesses (roteamento por subagent)
+
+| Harness | Task-router hook | Subagents jev-* | Modelo por subagent |
+|---|---|---|---|
+| **Claude Code** | `hooks/jev-task-router.js` no UserPromptSubmit (settings.json) | `~/.claude/agents/jev-*.md` (10) | `model:` frontmatter → combo 9Router ✓ (validado no gateway log) |
+| **OpenCode** | plugin `plugins/jev.js` (`chat.message` + `system.transform`) | `~/.config/opencode/agent/jev-*.md` (10) | `model: 9router/<combo>` ✓ |
+| **Codex** | `hooks.json` UserPromptSubmit (jev-task-router.js) ✓ | sem subagents custom (limitação Codex) | N/A — hook injeta diretiva, executa inline |
+| **AGY** | `hooks/jev-task-router-gemini.js` no UserPromptSubmit ✓ | sem subagents custom (limitação AGY) | N/A — hook injeta diretiva, executa inline |
+
+**Fix**: `jev-task-router` agora está no `DEFAULT_CONFIG.hooks` (antes não estava → `isEnabled` retornava undefined e o hook saía cedo em todos os harnesses). Fix no dashboard: `collectConfig` preserva `suggested_combos` + `task_combos` ao salvar (antes o Save apagava os combos).
+
+**Gerador**: `node scripts/generate-subagents.js` → gera agentes nos 3 formatos:
+- `~/.claude/agents/jev-*.md` (Claude Code: `tools` + `model: <combo>`)
+- `~/.config/opencode/agent/jev-*.md` (OpenCode: `mode: subagent`, `model: 9router/<combo>`)
+- `.claude/agents/` no repo (projeto)

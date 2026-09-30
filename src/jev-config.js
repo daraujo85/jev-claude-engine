@@ -49,6 +49,10 @@ export const DEFAULT_CONFIG = {
       confidence_threshold: 0.50,
       min_skills: 5
     },
+    'jev-task-router': {
+      enabled: true,
+      confidence_threshold: 0.55
+    },
     'jev-fast-compact': {
       enabled: true,
       usage_threshold: 25

@@ -14,7 +14,8 @@ import { dirname } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const outDirs = [
   join(__dirname, '..', '.claude', 'agents'),
-  join(process.env.HOME || '/Users/diegoaraujo', '.claude', 'agents')
+  join(process.env.HOME || '/Users/diegoaraujo', '.claude', 'agents'),
+  join(process.env.HOME || '/Users/diegoaraujo', '.config', 'opencode', 'agent')
 ];
 
 const TOOL_ALLOWLIST = {
@@ -55,16 +56,33 @@ function main() {
     if (!combo) continue;
     const name = 'jev-' + task.replace(/_/g, '-');
     const desc = taskToDesc(task, combo);
-    const md = `---
+    const prompt = TASK_PROMPTS[task] || 'You are the JEV subagent. Read .claude/jev-profile.md (if present) and follow the project conventions.';
+    const tools = TOOL_ALLOWLIST[task] || 'Read, Write, Edit, Bash, Glob, Grep';
+    for (const outDir of outDirs) {
+      let md;
+      if (outDir.includes('opencode')) {
+        md = `---
+description: ${desc}
+mode: subagent
+model: 9router/${combo}
+permission:
+  edit: allow
+  bash: allow
+---
+
+${prompt}
+`;
+      } else {
+        md = `---
 name: ${name}
 description: ${desc}
-tools: ${TOOL_ALLOWLIST[task] || 'Read, Write, Edit, Bash, Glob, Grep'}
+tools: ${tools}
 model: ${combo}
 ---
 
-${TASK_PROMPTS[task] || 'You are the JEV subagent. Read .claude/jev-profile.md (if present) and follow the project conventions.'}
+${prompt}
 `;
-    for (const outDir of outDirs) {
+      }
       writeFileSync(join(outDir, name + '.md'), md);
     }
     n++;
