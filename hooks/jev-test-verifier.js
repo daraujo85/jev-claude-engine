@@ -90,11 +90,18 @@ ${JSON.stringify(toolInput).slice(0, 2500)}
   );
 
   const answer = result?.answers?.has_test_coverage;
-  // If not covered, print warning
+  // If not covered, warn via systemMessage (visible in TUI) +
+  // additionalContext so Claude can act on it.
   if (answer && answer.noul === false) {
-    process.stdout.write(
-      `\n⚠️  [JEV TEST VERIFIER]: O arquivo de controle '${path.basename(filePath)}' foi modificado, mas o JEV detectou que não há cobertura de testes correspondente (${Math.round((1 - (answer.probability || 0.2)) * 100)}% certeza).\nRecomenda-se gerar ou atualizar testes automatizados para validar estas regras.\n\n`
-    );
+    const confidence = Math.round((1 - (answer.probability || 0.2)) * 100);
+    const filename = path.basename(filePath);
+    process.stdout.write(JSON.stringify({
+      systemMessage: `[JEV] Test Verifier: '${filename}' sem cobertura de testes (${confidence}% certeza, ${result.latency_ms || 120}ms)`,
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: `\n⚠️  [JEV TEST VERIFIER]: O arquivo de controle '${filename}' foi modificado, mas o JEV detectou que não há cobertura de testes correspondente (${confidence}% certeza).\nRecomenda-se gerar ou atualizar testes automatizados para validar estas regras.\n`
+      }
+    }));
   }
 
   process.exit(0);

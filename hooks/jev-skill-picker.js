@@ -66,6 +66,7 @@ async function main() {
 
   if (answer && answer.choice && answer.choice !== 'none' && (confidence >= 0.50 || choiceProb >= 0.50)) {
     const effectiveProb = Math.max(confidence, choiceProb);
+    const tokensSaved = skills.length * 350;
     const card = renderJevCard({
       feature: 'Skill Picker Router',
       target: answer.choice,
@@ -73,13 +74,19 @@ async function main() {
       confidence: effectiveProb,
       decision: `Invocando skill: '${answer.choice}'`,
       probabilities: answer.probabilities,
-      tokensSaved: skills.length * 350
+      tokensSaved
     });
 
     process.stderr.write(card);
-    process.stdout.write(
-      `\n[JEV ROUTER: Invocar skill '${answer.choice}' (${Math.round(effectiveProb * 100)}% certeza). Não carregar outras skills.]\n`
-    );
+    // Contrato UserPromptSubmit: systemMessage (TUI) + additionalContext
+    // (injetado no prompt do Claude, sem gastar tokens de skill defs).
+    process.stdout.write(JSON.stringify({
+      systemMessage: `[JEV] Skill Picker: roteou pra '${answer.choice}' (${Math.round(effectiveProb * 100)}% certeza, ${result.latency_ms || 115}ms) — poupou ~${tokensSaved.toLocaleString()} tokens de contexto`,
+      hookSpecificOutput: {
+        hookEventName: 'UserPromptSubmit',
+        additionalContext: `[JEV ROUTER: Invocar skill '${answer.choice}' (${Math.round(effectiveProb * 100)}% certeza). Não carregar outras skills.]`
+      }
+    }));
   }
 
   process.exit(0);
