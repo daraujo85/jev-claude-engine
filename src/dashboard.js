@@ -68,6 +68,7 @@ export function createDashboardHtml(initialData, projectDir) {
       border: 1px solid var(--border-strong);
     }
     .brand-mark svg { width: 22px; height: 22px; display: block; }
+    .brand-mark svg .mark-glow { filter: drop-shadow(0 0 6px rgba(124,140,248,0.35)); }
     .brand-name { font-weight: 650; font-size: 13.5px; letter-spacing: -0.01em; }
     .brand-sub { font-size: 10.5px; color: var(--muted); letter-spacing: 0.02em; }
     .nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
@@ -202,20 +203,15 @@ export function createDashboardHtml(initialData, projectDir) {
               <stop offset="1" stop-color="#4cc3d9"/>
             </linearGradient>
           </defs>
-          <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#jev-grad)" opacity="0.16"/>
-          <rect x="1" y="1" width="30" height="30" rx="8" stroke="url(#jev-grad)" stroke-width="1.4"/>
-          <path d="M16 8v5.5" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
-          <path d="M16 18.5V24" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
-          <path d="M10.2 10.9l3.6 2.1" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
-          <path d="M18.2 19l3.6 2.1" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
-          <path d="M21.8 10.9l-3.6 2.1" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
-          <path d="M13.8 19l-3.6 2.1" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
-          <circle cx="16" cy="14" r="3.2" fill="url(#jev-grad)"/>
-          <circle cx="16" cy="14" r="1.2" fill="#0d0f14"/>
-          <circle cx="16" cy="22" r="2.2" fill="url(#jev-grad)"/>
-          <circle cx="16" cy="22" r="0.8" fill="#0d0f14"/>
-          <circle cx="7.5" cy="22" r="2" fill="url(#jev-grad)"/>
-          <circle cx="24.5" cy="22" r="2" fill="url(#jev-grad)"/>
+          <g class="mark-glow">
+            <!-- J lettermark, constructed geometric strokes -->
+            <path d="M12 8h8" stroke="url(#jev-grad)" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M12 8v13" stroke="url(#jev-grad)" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M12 21h6.5" stroke="url(#jev-grad)" stroke-width="2.4" stroke-linecap="round"/>
+            <!-- decision nucleus: single node choosing among paths -->
+            <path d="M23.5 9.5l3-3M23.5 9.5l3 3M23.5 9.5h-4" stroke="url(#jev-grad)" stroke-width="1.6" stroke-linecap="round"/>
+            <circle cx="23.5" cy="9.5" r="2.6" fill="#0d0f14" stroke="url(#jev-grad)" stroke-width="1.6"/>
+          </g>
         </svg>
       </div>
       <div>
