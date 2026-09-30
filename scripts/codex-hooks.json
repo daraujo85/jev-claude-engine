@@ -1,0 +1,54 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/diegoaraujo/Documents/projects/jev-claude-engine/hooks/jev-rule-guard.js",
+            "statusMessage": "JEV guard check",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/diegoaraujo/Documents/projects/jev-claude-engine/hooks/jev-test-verifier.js",
+            "statusMessage": "JEV test coverage check",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/diegoaraujo/Documents/projects/jev-claude-engine/hooks/jev-skill-picker.js",
+            "statusMessage": "JEV skill routing",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/diegoaraujo/Documents/projects/jev-claude-engine/hooks/jev-fast-compact.js",
+            "statusMessage": "JEV compaction guidance",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

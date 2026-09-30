@@ -284,8 +284,8 @@ falls back to a deterministic mock with no network egress.
 | :--- | :--- | :--- | :--- |
 | **Claude Code** | ✅ `PreToolUse`/`PostToolUse`/`PreCompact`/`UserPromptSubmit` via `settings.json` | ✅ `~/.claude/skills/` | ✅ `jev dashboard` |
 | **OpenCode** | ✅ plugin `plugins/jev.js` (`tool.execute.before` + `experimental.session.compacting`) | ✅ `~/.opencode/skills/` | ✅ |
-| **Codex CLI** | ⚠️ partial (config-driven hooks opt-in) | ✅ `~/.codex/skills/` | ✅ |
-| **AGY (Antigravity)** | ⚠️ partial | ✅ `~/.gemini/skills/` | ✅ |
+| **Codex CLI** | ✅ `~/.codex/hooks.json` (`codex_hooks` feature): rule-guard, test-verifier, skill-picker, fast-compact | ✅ `~/.codex/skills/` | ✅ |
+| **AGY (Antigravity)** | ✅ `~/.gemini/config/hooks.json`: rule-guard, test-verifier, skill-picker, fast-compact | ✅ `~/.gemini/skills/` | ✅ |
 
 - **Skills** sync to all agents via `scripts/sync-skills.sh` (Claude Code, OpenCode, Codex, AGY, `.agents`).
 - **Shared config** `~/.jev/config.json` (hooks on/off + thresholds + pricing/balance + API key) read by every hook and the dashboard.

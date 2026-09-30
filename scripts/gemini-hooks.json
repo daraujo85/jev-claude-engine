@@ -1,0 +1,59 @@
+{
+  "rtk": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/diegoaraujo/.gemini/hooks/rtk-hook-gemini.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "jev": {
+    "PreToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/diegoaraujo/.gemini/hooks/jev-guard-gemini.js"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/diegoaraujo/.gemini/hooks/jev-test-verifier-gemini.js"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/diegoaraujo/.gemini/hooks/jev-skill-picker-gemini.js"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/diegoaraujo/.gemini/hooks/jev-fast-compact-gemini.js"
+          }
+        ]
+      }
+    ]
+  }
+}
