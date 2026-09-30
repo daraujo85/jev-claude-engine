@@ -353,7 +353,7 @@ View it with `jev gain` or visualize it with `jev dashboard`.
 
 **All views (animated):** Telemetry → Hooks & Skills → Guardrails → Settings
 
-![JEV Dashboard — all views](docs/jev-dashboard-all.gif){: width="100%" }
+<img src="docs/jev-dashboard-all.gif" width="100%" alt="JEV Dashboard — all views">
 
 ### Charts
 
