@@ -218,6 +218,17 @@ export function createDashboardHtml(initialData, projectDir) {
     .stream-item .s-origin .ag-agy { color: var(--good); }
     .stream-item .s-origin .ag-unknown { color: var(--muted); }
     .stream-item .s-text { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .stream-item .s-type {
+      display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; padding: 1px 7px; border-radius: 4px; white-space: nowrap;
+    }
+    .stream-item .s-type.t-choice { color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(124,140,248,0.3); }
+    .stream-item .s-type.t-noul { color: var(--good); background: var(--good-dim); border: 1px solid rgba(63,182,139,0.3); }
+    .stream-item .s-type.t-score { color: var(--cyan); background: var(--cyan-dim); border: 1px solid rgba(76,195,217,0.3); }
+    .stream-item .s-type.t-empty { color: var(--muted); border: 1px solid var(--border-strong); }
+    .stream-item .s-result { color: var(--fg); font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .stream-item .s-result.good { color: var(--good); }
+    .stream-item .s-result.bad { color: var(--bad); }
     .stream-item.is-new {
       opacity: 1;
     }
@@ -789,6 +800,7 @@ export function createDashboardHtml(initialData, projectDir) {
       el.innerHTML = '<span class="s-time">' + t + '</span>' +
         '<span class="s-feat">' + (e.feature || 'general') + '</span>' +
         '<span class="s-origin">' + originLabel(e) + '</span>' +
+        typeBadgeHtml(e) + resultHtml(e) +
         '<span class="s-text">' + escapeHtml(text) + '</span>';
       list.insertBefore(el, list.firstChild);
       // drop oldest to keep the list bounded
@@ -814,6 +826,7 @@ export function createDashboardHtml(initialData, projectDir) {
           '<span class="s-time">' + t + '</span>' +
           '<span class="s-feat">' + (e.feature || 'general') + '</span>' +
           '<span class="s-origin">' + originLabel(e) + '</span>' +
+          typeBadgeHtml(e) + resultHtml(e) +
           '<span class="s-text">' + escapeHtml(text) + '</span>' +
           '</div>';
       });
@@ -823,6 +836,21 @@ export function createDashboardHtml(initialData, projectDir) {
       return String(s || '').replace(/[&<>"']/g, c => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
       ));
+    }
+    function typeBadgeHtml(e) {
+      const t = e.answer_type || '';
+      const label = { choice: 'Choice', noul: 'Noul', score: 'Score' }[t] || '';
+      if (!label) return '';
+      return '<span class="s-type t-' + t + '">' + label + '</span>';
+    }
+    function resultHtml(e) {
+      const t = e.answer_type || '';
+      const r = e.answer_result || '';
+      if (!r) return '';
+      let cls = '';
+      if (t === 'noul') cls = r.startsWith('true') ? ' good' : ' bad';
+      if (t === 'choice' && r.includes('none')) cls = ' bad';
+      return '<span class="s-result' + cls + '">' + escapeHtml(r) + '</span>';
     }
     function escapeAttr(s) {
       return escapeHtml(String(s || ''));

@@ -92,6 +92,8 @@ export class JevClient {
         jev_input_tokens: inputTokens,
         jev_cost_usd: Number(jevCostUsd.toFixed(8)),
         input_preview: meta.inputPreview || truncatePreview(state),
+        answer_type: summarizeAnswers(data).type,
+        answer_result: summarizeAnswers(data).result,
         estimated_llm_tokens_saved: meta.tokensSpared || 15000,
         estimated_llm_latency_ms: meta.llmLatency || 3200,
         status: 'success'
@@ -125,4 +127,36 @@ function truncatePreview(s, max = 280) {
   if (typeof s !== 'string' || !s.trim()) return '';
   const oneLine = s.replace(/\s+/g, ' ').trim();
   return oneLine.length > max ? oneLine.slice(0, max) + '…' : oneLine;
+}
+
+// Summarize the first answer for telemetry/UI: return { type, result }.
+// type ∈ choice|noul|score; result is a compact human-readable value.
+function summarizeAnswers(data) {
+  const answers = data?.answers;
+  if (!answers || typeof answers !== 'object') return { type: '', result: '' };
+  const first = Object.values(answers)[0];
+  if (!first || typeof first !== 'object') return { type: '', result: '' };
+  const t = first.type || inferType(first);
+  if (t === 'choice') {
+    const choice = first.choice;
+    const conf = first.confidence || first.probabilities?.[choice] || 0;
+    return { type: 'choice', result: choice + (conf ? ' (' + Math.round(conf * 100) + '%)' : '') };
+  }
+  if (t === 'noul') {
+    const raw = first.noul;
+    const noul = typeof raw === 'boolean' ? raw : (typeof raw === 'number' ? raw >= 0.5 : false);
+    const prob = first.probability != null ? first.probability : (typeof raw === 'number' ? raw : (noul ? 1 : 0));
+    return { type: 'noul', result: (noul ? 'true' : 'false') + ' (' + Math.round(prob * 100) + '%)' };
+  }
+  if (t === 'score') {
+    return { type: 'score', result: String(first.score != null ? first.score : 0) };
+  }
+  return { type: '', result: '' };
+}
+
+function inferType(ans) {
+  if (ans.choice != null) return 'choice';
+  if (ans.noul != null) return 'noul';
+  if (ans.score != null) return 'score';
+  return '';
 }
