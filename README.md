@@ -180,14 +180,29 @@ that subagent, which runs on the combo mapped in `router.task_combos`
 (`claude-coder`, `claude-tools`, `claude-tudao`). Validated end-to-end:
 Pong → `claude-coder` → `cc/claude-haiku-4-5`, 7 tests, real gateway logs.
 
-**Project profile.** `node scripts/jev-profile.js` scans a repo and writes
-`.claude/jev-profile.md` (stack, layers, patterns, test framework, code
-style, and **design tokens**). JEV subagents read it before writing code, so
-new work follows the existing architecture and never invents colors, spacing
-or icons. Validated on an Express + CQRS + Repository codebase: layers and
-patterns detected, `node:test` recognized, and a front-end feature used only
-the project's CSS variables (`--color-primary`, `--spacing-*`, …).
-See `docs/validated-features.md` for the full validation log.
+**Project Discovery — architecture, code style & design system.** 
+`node scripts/jev-profile.js` scans a repo and writes
+`.claude/jev-profile.md` — a compact profile the JEV subagents read **before
+writing any code**, so new work stays coherent with the project instead of
+drifting:
+
+- **Stack** — languages, frameworks, tooling markers (ESLint/Prettier, Airbnb/Standard style)
+- **Architecture layers** — observed folder structure (controllers, services, repositories, domain, use-cases, commands, queries, routes, middlewares, tests, …)
+- **Patterns** — CQRS/Command-Query, Repository, Service layer, MVC, DI container, ORM, event-driven, …
+- **Tests** — framework auto-detected (`node:test`, Jest/Vitest, pytest, xUnit, NUnit, …), layout and count
+- **Code style** — indentation (tabs/spaces), semicolons, naming (camelCase/snake_case), max line length
+- **Design system (front-end)** — CSS design tokens (`--color-primary`, `--spacing-*`, …), UI library (Tailwind/MUI/shadcn/Chakra/…), existing components, icon set
+
+Every JEV subagent prompt ends with: *read `.claude/jev-profile.md` first and
+follow the architecture and code style exactly; for front-end, use the design
+tokens and existing components — never invent colors, spacing or icons.*
+
+**Validated end-to-end** on an Express + CQRS + Repository codebase: 11 layers
+and 5 patterns detected, `node:test` recognized (not confused with Jest), and
+a front-end feature used **only** the project's CSS variables
+(`--color-primary`, `--color-accent`, `--spacing-sm/md/lg`, `--radius-md`,
+`--shadow-glow`) — zero new colors, spacing or fonts. See
+`docs/validated-features.md` for the full validation log.
 
 #### `/jev-discover` — Hybrid Discovery Pipeline
 
