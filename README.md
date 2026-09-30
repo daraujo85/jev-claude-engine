@@ -241,6 +241,26 @@ export JEV_GATEWAY_URL="https://your-gateway/v1/systemone"
 
 Timeout is **1,500 ms** (2,500 ms for TypeSafe direct). On timeout or error, hooks fail open (`exit 0`).
 
+### Dashboard settings (`~/.jev/config.json`)
+
+Beyond env vars, the dashboard Settings view writes a shared config file that
+hooks and the dashboard both read — no code edits needed:
+
+| Key | What it controls | Default |
+| :--- | :--- | :--- |
+| `jev.api_key` | API key (masked in the UI, Reveal toggle) — used when no env key is set | `""` |
+| `pricing.price_per_million_input` | Cost per 1M input tokens used to compute real spend | `0.04` |
+| `pricing.initial_balance_usd` | Starting credit; remaining balance = initial − real spend | `5.0` |
+| `hooks.*.enabled` | Turn each hook on/off | `true` |
+| `hooks.*.confidence_threshold` | Min confidence to act (block/warn/route) | per hook |
+| `hooks.jev-rule-guard.block_*` | Toggle blocking rule violation / contract break / logic weakening | `true` |
+| `skills.*` | Enable/disable skills + tune params (top_files, batch_size, max_steps…) | defaults |
+| `skills.jev-anti-regression.min_severity` | Lowest severity to surface regression signals | `medium` |
+
+The file lives in your home dir (`chmod 600`), never in the repo. **Offline /
+mock**: set `JEV_MOCK_MODE=1` (env) or leave the API key empty — the engine
+falls back to a deterministic mock with no network egress.
+
 ---
 
 ## Usage
@@ -260,14 +280,17 @@ Timeout is **1,500 ms** (2,500 ms for TypeSafe direct). On timeout or error, hoo
 
 ## Agent compatibility
 
-| Agent | Hooks | Skills |
-| :--- | :--- | :--- |
-| **Claude Code** | ✅ `settings.json` | ✅ `~/.claude/skills/` |
-| **OpenCode** | ✅ (plugin/symlink) | ✅ `~/.opencode/skills/` |
-| **Codex CLI** | ✅ | ✅ `~/.codex/skills/` |
-| **AGY** | ✅ | ✅ |
+| Agent | Hooks (automatic) | Skills | Dashboard |
+| :--- | :--- | :--- | :--- |
+| **Claude Code** | ✅ `PreToolUse`/`PostToolUse`/`PreCompact`/`UserPromptSubmit` via `settings.json` | ✅ `~/.claude/skills/` | ✅ `jev dashboard` |
+| **OpenCode** | ✅ plugin `plugins/jev.js` (`tool.execute.before` + `experimental.session.compacting`) | ✅ `~/.opencode/skills/` | ✅ |
+| **Codex CLI** | ⚠️ partial (config-driven hooks opt-in) | ✅ `~/.codex/skills/` | ✅ |
+| **AGY (Antigravity)** | ⚠️ partial | ✅ `~/.gemini/skills/` | ✅ |
 
-All hooks follow the same fail-open discipline, so they behave identically (and safely) across agents.
+- **Skills** sync to all agents via `scripts/sync-skills.sh` (Claude Code, OpenCode, Codex, AGY, `.agents`).
+- **Shared config** `~/.jev/config.json` (hooks on/off + thresholds + pricing/balance + API key) read by every hook and the dashboard.
+- **OpenCode plugin** (`plugins/jev-opencode.js`) mirrors the Claude Code hooks: anti-regression on file edits and JEV compaction guidance.
+- All hooks follow the same **fail-open** discipline — a JEV timeout or error never blocks the session, across every agent.
 
 ---
 
@@ -328,11 +351,19 @@ View it with `jev gain` or visualize it with `jev dashboard`.
 
 ![JEV Telemetry Dashboard](docs/jev-dashboard.png)
 
-![JEV Hooks & Skills config](docs/jev-config.png)
-
 **All views (animated):** Telemetry → Hooks & Skills → Guardrails → Settings
 
-![JEV Dashboard — all views](docs/jev-dashboard-all.gif)
+![JEV Dashboard — all views](docs/jev-dashboard-all.gif){: width="100%" }
+
+### Charts
+
+Latency trend (last 50 decisions) and tokens saved by feature:
+
+![Latency trend](docs/chart-latency.png) ![Tokens by feature](docs/chart-features.png)
+
+Requests and tokens saved by project:
+
+![Requests by project](docs/chart-requests-project.png) ![Tokens saved by project](docs/chart-tokens-project.png)
 
 Measured in production use: **~716 ms average decision latency** (vs ~3,200 ms LLM), **13.6M+ context tokens spared**, **~$30.32 USD saved** across **674 decisions**.
 
