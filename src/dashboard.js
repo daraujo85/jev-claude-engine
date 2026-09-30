@@ -506,7 +506,7 @@ export function createDashboardHtml(initialData, projectDir) {
         <div class="kpi bar-amber">
           <div class="label" data-i18n="kpiFastDecisions">Fast decisions</div>
           <div class="value" id="val-decisions">...</div>
-          <div class="sub" data-i18n="kpiFastDecisionsSub">avg latency <span class="cmp" id="val-latency">...</span></div>
+          <div class="sub"><span data-i18n="kpiFastDecisionsSub">avg latency</span> <span class="cmp" id="val-latency">...</span></div>
         </div>
         <div class="kpi bar-good">
           <div class="label" data-i18n="kpiJevSpend">JEV spend</div>
@@ -779,7 +779,10 @@ export function createDashboardHtml(initialData, projectDir) {
       });
       const sel = document.getElementById('lang-select');
       if (sel) sel.value = JEV_LANG;
-      // re-render the current view (titles/crumbs + dynamic text)
+      // re-render dynamic cards/charts (savings, table, bars) + view title
+      if (typeof currentData !== 'undefined' && currentData && typeof render === 'function') {
+        render(currentData);
+      }
       const cur = new URLSearchParams(window.location.search).get('view') || 'telemetry';
       showView(cur);
     }
@@ -796,6 +799,24 @@ export function createDashboardHtml(initialData, projectDir) {
       applyLang();
     }
     let currentData = ${JSON.stringify(initialData)};
+
+    function featName(feat) {
+      const key = 'feat_' + String(feat || 'unknown').replace(/-/g, '_');
+      return i18nStr(key);
+    }
+    function i18nFmt(key, vars) {
+      return String(i18nStr(key)).replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : ''));
+    }
+    function fmtShort(n) {
+      if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+      if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
+      return String(n);
+    }
+    function fmtSec(s) {
+      if (s >= 3600) return (s / 3600).toFixed(1) + 'h';
+      if (s >= 60) return Math.floor(s / 60) + 'm';
+      return Math.round(s) + 's';
+    }
 
     function render(data) {
       document.getElementById('val-tokens').innerText = (data.total_tokens_saved || 0).toLocaleString('pt-BR');
@@ -835,14 +856,14 @@ export function createDashboardHtml(initialData, projectDir) {
         card.className = 'card';
         card.innerHTML = \`
           <div class="card-head">
-            <span class="card-title"><span class="dot" style="background:\${color}"></span>\${feat}</span>
-            <span class="card-count">\${info.count} calls</span>
+            <span class="card-title"><span class="dot" style="background:\${color}"></span>\${featName(feat)}</span>
+            <span class="card-count">\${i18nFmt('count_calls', { count: info.count.toLocaleString('pt-BR') })}</span>
           </div>
           <div class="card-bar"><div class="fill" style="width:\${pct}%; background:\${color}"></div></div>
           <div class="card-stats">
-            <div class="stat"><div class="k">Tokens</div><strong>\${fmtShort(info.tokens_saved)}</strong></div>
-            <div class="stat"><div class="k">Avg</div><strong>\${info.avg_latency_ms} ms</strong></div>
-            <div class="stat"><div class="k">Time</div><strong>\${fmtSec(info.time_saved_sec)}</strong></div>
+            <div class="stat"><div class="k">\${i18nStr('statTokens')}</div><strong>\${fmtShort(info.tokens_saved)}</strong></div>
+            <div class="stat"><div class="k">\${i18nStr('statAvg')}</div><strong>\${info.avg_latency_ms} ms</strong></div>
+            <div class="stat"><div class="k">\${i18nStr('statTime')}</div><strong>\${fmtSec(info.time_saved_sec)}</strong></div>
           </div>
         \`;
         bd.appendChild(card);
@@ -856,7 +877,7 @@ export function createDashboardHtml(initialData, projectDir) {
         const dt = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString('pt-BR') : '-';
         tr.innerHTML = \`
           <td class="td-muted">\${dt}</td>
-          <td><span class="tag tag-feature">\${entry.feature || 'general'}</span></td>
+          <td><span class="tag tag-feature">\${featName(entry.feature)}</span></td>
           <td>\${entry.jev_latency_ms || 0} ms</td>
           <td style="color: var(--good); font-weight: 600;">+\${(entry.estimated_llm_tokens_saved || 0).toLocaleString('pt-BR')}</td>
           <td><span class="tag tag-status">\${entry.status || 'success'}</span></td>
@@ -1043,7 +1064,7 @@ function projectShort(p) {
       feats.forEach(([name, f], i) => {
         const y = pad + i * gap + 4;
         const w = Math.max(4, (f.tokens_saved / max) * barMax);
-        out += '<text class="axis-label" x="' + pad + '" y="' + (y + barH - 4) + '">' + truncate(name, 14) + '</text>' +
+        out += '<text class="axis-label" x="' + pad + '" y="' + (y + barH - 4) + '">' + truncate(featName(name), 14) + '</text>' +
           '<rect class="bar" x="' + (pad + labelW) + '" y="' + y + '" width="' + w.toFixed(1) + '" height="' + barH + '" rx="3"/>';
       });
       svg.innerHTML = out +
