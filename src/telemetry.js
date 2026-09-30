@@ -26,6 +26,21 @@ export function detectOrigin(cwd = process.cwd()) {
   return { agent, project };
 }
 
+/** basename of a project path, tolerant to trailing slashes and worktrees. */
+export function projectName(p) {
+  if (!p) return '';
+  const s = String(p).replace(/\/+$/, '');
+  const seg = s.split('/');
+  // collapse nested .claude/worktrees/<name> to the leaf project name
+  for (let i = seg.length - 1; i >= 0; i--) {
+    const cur = seg[i];
+    if (cur && cur !== 'worktrees' && cur !== '.claude' && !cur.startsWith('.')) {
+      return cur;
+    }
+  }
+  return seg[seg.length - 1] || s;
+}
+
 export function getTelemetryDir(projectDir = process.cwd()) {
   const dir = path.join(projectDir, '.jev');
   if (!fs.existsSync(dir)) {
@@ -125,6 +140,7 @@ export function readTelemetrySummary(projectDir = process.cwd()) {
   let totalJevCost = 0;
   let totalJevInputTokens = 0;
   const byFeature = {};
+  const byProject = {};
 
   for (const row of entries) {
     const lat = row.jev_latency_ms || 0;
@@ -134,6 +150,7 @@ export function readTelemetrySummary(projectDir = process.cwd()) {
     const feat = row.feature || 'other';
     const jevCost = row.jev_cost_usd || 0.000008;
     const jevInput = row.jev_input_tokens || 0;
+    const proj = projectName(row.origin_project);
 
     totalLatency += lat;
     totalTimeSavedMs += timeSaved;
@@ -156,12 +173,34 @@ export function readTelemetrySummary(projectDir = process.cwd()) {
     byFeature[feat].time_saved_ms += timeSaved;
     byFeature[feat].total_latency += lat;
     byFeature[feat].cost_saved_usd += cost;
+
+    if (proj) {
+      if (!byProject[proj]) {
+        byProject[proj] = { count: 0, tokens_saved: 0, time_saved_ms: 0, total_latency: 0, cost_saved_usd: 0 };
+      }
+      byProject[proj].count += 1;
+      byProject[proj].tokens_saved += tokens;
+      byProject[proj].time_saved_ms += timeSaved;
+      byProject[proj].total_latency += lat;
+      byProject[proj].cost_saved_usd += cost;
+    }
   }
 
   const count = entries.length;
   const byFeatureSummary = {};
   for (const [k, v] of Object.entries(byFeature)) {
     byFeatureSummary[k] = {
+      count: v.count,
+      tokens_saved: v.tokens_saved,
+      time_saved_sec: Math.round(v.time_saved_ms / 1000),
+      avg_latency_ms: v.count > 0 ? Math.round(v.total_latency / v.count) : 0,
+      cost_saved_usd: Number(v.cost_saved_usd.toFixed(4))
+    };
+  }
+
+  const byProjectSummary = {};
+  for (const [k, v] of Object.entries(byProject)) {
+    byProjectSummary[k] = {
       count: v.count,
       tokens_saved: v.tokens_saved,
       time_saved_sec: Math.round(v.time_saved_ms / 1000),
@@ -181,6 +220,7 @@ export function readTelemetrySummary(projectDir = process.cwd()) {
     total_jev_cost_usd: Number(totalJevCost.toFixed(6)),
     total_jev_input_tokens: totalJevInputTokens,
     by_feature: byFeatureSummary,
+    by_project: byProjectSummary,
     recent_entries: entries.slice(0, 100)
   };
 }

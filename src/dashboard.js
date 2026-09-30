@@ -406,6 +406,20 @@ export function createDashboardHtml(initialData, projectDir) {
 
     <div class="section">
       <div class="section-head">
+        <div class="section-title">Usage by project</div>
+        <div class="section-note">decisions and tokens saved per project</div>
+      </div>
+      <div class="chart-card">
+        <svg class="chart-svg" id="chart-projects" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
+        <div class="chart-legend">
+          <span><span class="dot lat"></span>decisions</span>
+          <span><span class="dot tok"></span>tokens saved</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
         <div class="section-title">Savings by hook and skill</div>
         <div class="section-note">tokens saved and latency per feature</div>
       </div>
@@ -510,6 +524,7 @@ export function createDashboardHtml(initialData, projectDir) {
 
       renderLatencyChart(entries);
       renderFeatureBars(data.by_feature || {});
+      renderProjectBars(data.by_project || {});
       renderStream(entries);
     }
 
@@ -685,6 +700,35 @@ function projectShort(p) {
       if (s >= 3600) return (s / 3600).toFixed(1) + 'h';
       if (s >= 60) return Math.round(s / 60) + 'm';
       return s + 's';
+    }
+
+    // --- Usage by project: twin bars (decisions + tokens saved) per project ---
+    function renderProjectBars(byProject) {
+      const svg = document.getElementById('chart-projects');
+      const W = 400, H = 200, pad = 8, barH = 7, gap = 22;
+      const projects = Object.entries(byProject || {})
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 8);
+      if (projects.length === 0) { svg.innerHTML = ''; return; }
+
+      const maxCount = Math.max(...projects.map(([, p]) => p.count), 1);
+      const maxTokens = Math.max(...projects.map(([, p]) => p.tokens_saved), 1);
+      const labelW = 110, barMax = W - pad - labelW - pad - 34;
+      let out = '';
+      projects.forEach(([name, p], i) => {
+        const y = pad + i * gap;
+        const wDec = Math.max(3, (p.count / maxCount) * barMax);
+        const wTok = Math.max(3, (p.tokens_saved / maxTokens) * barMax);
+        // label
+        out += '<text class="axis-label" x="' + pad + '" y="' + (y + 12) + '">' + truncate(name, 18) + '</text>';
+        // twin bars
+        out += '<rect class="bar" x="' + (pad + labelW) + '" y="' + y + '" width="' + wDec.toFixed(1) + '" height="' + barH + '" rx="2"/>' +
+          '<rect class="bar" style="fill:var(--good)" x="' + (pad + labelW) + '" y="' + (y + barH + 2) + '" width="' + wTok.toFixed(1) + '" height="' + barH + '" rx="2"/>';
+        // counts on the right
+        out += '<text class="axis-label" x="' + (pad + labelW + barMax + 6) + '" y="' + (y + barH) + '">' + p.count + '</text>' +
+          '<text class="axis-label" x="' + (pad + labelW + barMax + 6) + '" y="' + (y + 2 * barH + 2) + '">' + fmtShort(p.tokens_saved) + '</text>';
+      });
+      svg.innerHTML = out;
     }
 
     async function fetchData() {
