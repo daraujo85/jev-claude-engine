@@ -208,7 +208,8 @@ export function createDashboardHtml(initialData, projectDir) {
     .stream-item:last-child { border-bottom: none; }
     .stream-item .s-time { color: var(--muted); font-size: 10.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .stream-item .s-feat { color: var(--accent); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; font-weight: 600; }
-    .stream-item .s-origin { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 10.5px; white-space: nowrap; }
+    .stream-item .s-origin { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 10.5px; white-space: nowrap; max-width: 130px; overflow: hidden; }
+    .stream-item .s-origin span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .stream-item .s-origin svg { width: 11px; height: 11px; flex-shrink: 0; }
     .stream-item .s-origin .ag-opencode { color: var(--accent); }
     .stream-item .s-origin .ag-claude-code { color: var(--amber); }
@@ -578,13 +579,18 @@ export function createDashboardHtml(initialData, projectDir) {
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
       ));
     }
-    // --- per-agent SVG marks (colors follow dashboard tokens) ---
+    // --- per-agent SVG marks (real brand shapes, colors follow dashboard tokens) ---
     const AGENT_SVGS = {
-      'opencode': '<svg viewBox="0 0 12 12" class="ag-opencode" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="6" cy="6" r="4.4"/><path d="M6 1.6v2.9M6 7.5v2.9"/></svg>',
-      'claude-code': '<svg viewBox="0 0 12 12" class="ag-claude-code" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 1.5l4 3-4 6-4-6z"/></svg>',
-      'codex': '<svg viewBox="0 0 12 12" class="ag-codex" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 9.5V2.5L10.2 6z"/><path d="M1.8 2.5h2.1M6 2.5h4.2M1.8 6h2.1M6 6h4.2M1.8 9.5h2.1M6 9.5h4.2"/></svg>',
-      'agy': '<svg viewBox="0 0 12 12" class="ag-agy" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="1.8" width="8.4" height="8.4" rx="1.6"/><path d="M4.5 7.6V4.4M6 7.6V3.4M7.5 7.6V5.4"/></svg>',
-      'unknown': '<svg viewBox="0 0 12 12" class="ag-unknown" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="6" cy="6" r="4.4"/><path d="M6 6l2.4-2.4"/></svg>'
+      // OpenCode (anomalyco) — stepped O
+      'opencode': '<svg viewBox="0 0 24 24" class="ag-opencode" fill="currentColor" aria-hidden="true"><path d="M8.4 17.4H19.2V21H4.8v-7.2h3.6v3.6zm7.2-7.2v3.6H8.4v-3.6h7.2zm3.6 0h-3.6V6.6H4.8V3h14.4v7.2z"/></svg>',
+      // Claude Code (Anthropic) — asterisk
+      'claude-code': '<svg viewBox="0 0 24 24" class="ag-claude-code" fill="currentColor" aria-hidden="true"><path d="M17.304 3.541h-3.672l6.696 16.918H24L17.304 3.541zm-10.608 0L0 20.459h3.744l1.37-3.553h7.005l1.37 3.553h3.744L10.536 3.541zm-.371 10.223 2.291-5.946 2.291 5.946z"/></svg>',
+      // Codex (OpenAI) — knot
+      'codex': '<svg viewBox="0 0 24 24" class="ag-codex" fill="currentColor" aria-hidden="true"><path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.901 6.065 6.065 0 0 0-7.275 1.172 5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.096 5.98 5.98 0 0 0 .511 4.911 6.051 6.051 0 0 0 6.514 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.998-2.9 6.056 6.056 0 0 0-.748-7.073zm-9.022 12.608a4.475 4.475 0 0 1-2.876-1.04l.141-.084 4.101-2.367a4.524 4.524 0 0 1 1.337 1.94 4.383 4.383 0 0 1-.632 3.012 3.8 3.8 0 0 1-.907.762 4.458 4.458 0 0 1-1.164-2.223zm-8.693-5.192a4.447 4.447 0 0 1-.913-.602l6.27-3.617a4.525 4.525 0 0 1-.386 2.326 4.397 4.397 0 0 1-1.921 2.392 3.845 3.845 0 0 1-.907.763 4.466 4.466 0 0 1-1.143-2.262zm-1.67-7.255a4.447 4.447 0 0 1 1.057-.333l.074.086.102 7.23a4.521 4.521 0 0 1-2.362.226 4.393 4.393 0 0 1-2.544-1.73 3.857 3.857 0 0 1-.433-.906 4.477 4.477 0 0 1 2.106-1.573zm8.723-5.411c.137-.054.28-.105.43-.15l3.662 6.23-.009.111a4.527 4.527 0 0 1-2.35-1.033 4.398 4.398 0 0 1-1.42-2.631 3.83 3.83 0 0 1 .032-1.023 4.45 4.45 0 0 1 1.655-.504zm-4.535 2.879a4.536 4.536 0 0 1 1.468-.65l.109.017 4.853 5.362-.069.088a4.523 4.523 0 0 1-2.564.287 4.393 4.393 0 0 1-2.446-1.403 3.843 3.843 0 0 1-.6-.837 4.463 4.463 0 0 1-.751-1.864zm10.584 2.121c.152.006.303.018.45.034l1.25 7.133-.05.098a4.523 4.523 0 0 1-2.236-1.085 4.392 4.392 0 0 1-1.18-2.626 3.84 3.84 0 0 1 .218-1.002 4.468 4.468 0 0 1 1.548-2.552zm-6.134 6.07a4.5 4.5 0 0 1-1.521-.385L7.013 10.4c.006-.036.008-.072.014-.108a4.523 4.523 0 0 1 2.546.18 4.39 4.39 0 0 1 2.295 1.59 3.845 3.845 0 0 1 .533.895 4.463 4.463 0 0 1 .607 2.231zm-2.64 5.617-4.18-2.401a4.521 4.521 0 0 1 1.782-1.589l4.183 2.407a3.89 3.89 0 0 1-.652 1.233 4.476 4.476 0 0 1-1.133.35z"/></svg>',
+      // AntGravity (Google) — broken star
+      'agy': '<svg viewBox="0 0 24 24" class="ag-agy" fill="currentColor" aria-hidden="true"><path d="M21.751 22.607c1.34 1.005 3.35.335 1.508-1.508C17.73 15.74 18.904 1 12.037 1 5.17 1 6.342 15.74.815 21.1c-2.01 2.009.167 2.511 1.507 1.506 5.192-3.517 4.857-9.714 9.715-9.714 4.857 0 4.522 6.197 9.714 9.715z"/></svg>',
+      // unknown — question mark
+      'unknown': '<svg viewBox="0 0 24 24" class="ag-unknown" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1.5 1-1.5 2v.7"/><circle cx="11.5" cy="17" r="0.4" fill="currentColor"/></svg>'
     };
     function agentSvg(agent) {
       return AGENT_SVGS[agent] || AGENT_SVGS.unknown;
@@ -595,7 +601,14 @@ export function createDashboardHtml(initialData, projectDir) {
     }
     function originLabel(e) {
       const agent = e.origin_agent || 'unknown';
-      return agentSvg(agent) + '<span>' + escapeHtml(agentLabel(agent)) + '</span>';
+      const proj = projectShort(e.origin_project);
+      return agentSvg(agent) + '<span>' + escapeHtml(agentLabel(agent)) + (proj ? ' · ' + escapeHtml(proj) : '') + '</span>';
+    }
+function projectShort(p) {
+      if (!p) return '';
+      const s = String(p).replace(/[\\/]+$/, '');
+      const parts = s.split('/');
+      return parts[parts.length - 1] || s;
     }
 
     // --- Latency line/area chart (inline SVG, last 50 decisions) ---
