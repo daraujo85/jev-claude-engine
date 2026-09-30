@@ -305,14 +305,14 @@ export function createDashboardHtml(initialData, projectDir) {
     /* ---- Config (Hooks & Skills) ---- */
     .cfg-item {
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-      padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      margin-bottom: 10px; max-width: 720px;
+      padding: 13px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      margin-bottom: 10px;
     }
-    .cfg-item .cfg-meta { min-width: 0; }
+    .cfg-item .cfg-meta { min-width: 0; flex: 1; }
     .cfg-item .cfg-name { font-weight: 600; font-size: 12.5px; }
     .cfg-item .cfg-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .cfg-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-    .cfg-field { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+    .cfg-controls { display: flex; align-items: center; gap: 14px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+    .cfg-field { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); white-space: nowrap; }
     .cfg-field input {
       width: 58px; background: var(--surface-2); border: 1px solid var(--border-strong);
       color: var(--fg); border-radius: 5px; padding: 4px 6px; font-size: 11.5px;
@@ -807,36 +807,51 @@ function projectShort(p) {
 
     // --- Hooks & Skills config UI ---
     const HOOK_META = {
-      'jev-rule-guard': { desc: 'block edits that violate project rules or break contracts', fields: [['confidence_threshold', 0.80], ['block_contract_break', true], ['block_logic_weakening', true]] },
-      'jev-skill-picker': { desc: 'route prompts to the best skill', fields: [['confidence_threshold', 0.50], ['min_skills', 5]] },
-      'jev-fast-compact': { desc: 'guide context compaction', fields: [['usage_threshold', 25]] },
-      'jev-test-verifier': { desc: 'flag control files without test coverage', fields: [['control_file_pattern', 'regex']] }
+      'jev-rule-guard': { name: 'Rule Guard', desc: 'block edits that violate project rules or break contracts', fields: [['confidence_threshold', 0.80], ['block_contract_break', true], ['block_logic_weakening', true]] },
+      'jev-skill-picker': { name: 'Skill Picker', desc: 'route prompts to the best skill', fields: [['confidence_threshold', 0.50], ['min_skills', 5]] },
+      'jev-fast-compact': { name: 'Fast Compaction', desc: 'guide context compaction', fields: [['usage_threshold', 25]] },
+      'jev-test-verifier': { name: 'Test Verifier', desc: 'flag control files without test coverage', fields: [['control_file_pattern', 'regex']] }
     };
     const SKILL_META = {
-      'jev-discover': { desc: 'hybrid discovery (graph + search + JEV)', fields: [['top_files', 3]] },
-      'jev-explore': { desc: 'score files and pick top relevant', fields: [['batch_size', 20], ['top_files', 3]] },
-      'jev-review': { desc: '7-question review pre-filter', fields: [['confidence_threshold', 0.50]] },
-      'jev-anti-regression': { desc: 'detect regression risk in diffs', fields: [['confidence_threshold', 0.75]] },
-      'jev-plan-evaluator': { desc: 'validate bugfix plans', fields: [['min_score', 2.5]] },
-      'jev-browser-test': { desc: 'autonomous browser UI testing', fields: [['max_steps', 10]] }
+      'jev-discover': { name: 'Discover', desc: 'hybrid discovery (graph + search + JEV)', fields: [['top_files', 3]] },
+      'jev-explore': { name: 'Explore', desc: 'score files and pick top relevant', fields: [['batch_size', 20], ['top_files', 3]] },
+      'jev-review': { name: 'Review', desc: '7-question review pre-filter', fields: [['confidence_threshold', 0.50]] },
+      'jev-anti-regression': { name: 'Anti-Regression', desc: 'detect regression risk in diffs', fields: [['confidence_threshold', 0.75]] },
+      'jev-plan-evaluator': { name: 'Plan Evaluator', desc: 'validate bugfix plans', fields: [['min_score', 2.5]] },
+      'jev-browser-test': { name: 'Browser Test', desc: 'autonomous browser UI testing', fields: [['max_steps', 10]] }
+    };
+    const FIELD_LABELS = {
+      confidence_threshold: 'Min confidence',
+      block_contract_break: 'Block contract break',
+      block_logic_weakening: 'Block logic weakening',
+      min_skills: 'Min skills',
+      usage_threshold: 'Usage %',
+      control_file_pattern: 'Control pattern',
+      top_files: 'Top files',
+      batch_size: 'Batch size',
+      min_score: 'Min score',
+      max_steps: 'Max steps'
     };
     let jevConfig = {};
 
+    function fieldLabel(f) {
+      return FIELD_LABELS[f] || f.replace(/_/g, ' ');
+    }
     function cfgItemHTML(kind, name, meta, enabled) {
       const fields = (meta.fields || []).map(([f, defaultVal]) => {
         const v = jevConfig[kind]?.[name]?.[f];
         const val = v === undefined ? defaultVal : v;
         if (typeof defaultVal === 'boolean') {
-          return '<label class="cfg-field">' + f +
+          return '<label class="cfg-field">' + fieldLabel(f) +
             '<input type="checkbox" data-kind="' + kind + '" data-name="' + name + '" data-field="' + f + '" ' + (val ? 'checked' : '') + '></label>';
         }
-        return '<label class="cfg-field">' + f +
+        return '<label class="cfg-field">' + fieldLabel(f) +
           '<input type="number" step="any" data-kind="' + kind + '" data-name="' + name + '" data-field="' + f + '" value="' + val + '"></label>';
       }).join('');
       return '<div class="cfg-item">' +
-        '<div class="cfg-meta"><div class="cfg-name">' + name + '</div><div class="cfg-desc">' + meta.desc + '</div></div>' +
+        '<div class="cfg-meta"><div class="cfg-name">' + meta.name + '</div><div class="cfg-desc">' + meta.desc + '</div></div>' +
         '<div class="cfg-controls">' + fields +
-        '<label class="toggle"><input type="checkbox" data-kind="' + kind + '" data-name="' + name + '" data-field="enabled" ' + (enabled ? 'checked' : '') + '><span class="slider"></span></label>' +
+        '<label class="toggle" title="Enable / disable"><input type="checkbox" data-kind="' + kind + '" data-name="' + name + '" data-field="enabled" ' + (enabled ? 'checked' : '') + '><span class="slider"></span></label>' +
         '</div></div>';
     }
 
@@ -855,12 +870,17 @@ function projectShort(p) {
       } catch (e) { console.error('config load failed', e); }
     }
 
-    // Simple SPA view switching via sidebar
+    // SPA view switching via sidebar, synced to ?view=<name> query param
     const VIEWS = {
       telemetry: { title: 'System telemetry', crumb: 'JEV System One · real-time decisions', refresh: true },
       config: { title: 'Hooks & Skills', crumb: 'toggle and tune JEV hooks · saved to ~/.jev/config.json', refresh: false }
     };
+    function viewFromQuery() {
+      const p = new URLSearchParams(window.location.search).get('view');
+      return VIEWS[p] ? p : 'telemetry';
+    }
     function showView(name) {
+      if (!VIEWS[name]) name = 'telemetry';
       const showTelemetry = name === 'telemetry';
       document.getElementById('view-telemetry').style.display = showTelemetry ? '' : 'none';
       document.getElementById('view-config').style.display = showTelemetry ? 'none' : '';
@@ -870,7 +890,14 @@ function projectShort(p) {
       document.querySelectorAll('.nav-item').forEach(a => {
         a.classList.toggle('active', a.dataset.view === name);
       });
+      // keep the address bar in sync (replaceState, no page reload)
+      if (name === 'telemetry') {
+        history.replaceState(null, '', window.location.pathname);
+      } else {
+        history.replaceState(null, '', window.location.pathname + '?view=' + name);
+      }
     }
+    window.addEventListener('popstate', () => showView(viewFromQuery()));
 
     function collectConfig() {
       const out = { hooks: {}, skills: {} };
@@ -912,6 +939,7 @@ function projectShort(p) {
     render(currentData);
     setInterval(fetchData, 4000);
     initConfig();
+    showView(viewFromQuery());
   </script>
 </body>
 </html>`;
@@ -922,14 +950,16 @@ export function startDashboardServer(options = {}) {
   const projectDir = options.projectDir || process.cwd();
 
   const server = http.createServer((req, res) => {
-    if (req.url === '/api/stats') {
+    const urlPath = (req.url || '').split('?')[0];
+
+    if (urlPath === '/api/stats') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       const stats = readTelemetrySummary(projectDir);
       res.end(JSON.stringify(stats));
       return;
     }
 
-    if (req.url === '/api/config') {
+    if (urlPath === '/api/config') {
       if (req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(loadConfig()));
@@ -953,20 +983,20 @@ export function startDashboardServer(options = {}) {
       }
     }
 
-    if (req.url === '/api/config/reset' && req.method === 'POST') {
+    if (urlPath === '/api/config/reset' && req.method === 'POST') {
       const merged = resetConfig();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, config: merged }));
       return;
     }
 
-    if (req.url === '/logo.png' && logoBuffer) {
+    if (urlPath === '/logo.png' && logoBuffer) {
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'max-age=300' });
       res.end(logoBuffer);
       return;
     }
 
-    if (req.url === '/' || req.url === '/index.html') {
+    if (urlPath === '/' || urlPath === '/index.html') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       const stats = readTelemetrySummary(projectDir);
       res.end(createDashboardHtml(stats, projectDir));
