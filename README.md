@@ -134,11 +134,29 @@ node skills/jev-model-router/jev-model-router.js --json             # machine-re
 
 Connect any 9Router from the dashboard **9Router** view (base URL + API key,
 stored in `~/.jev/config.json`) and toggle the features: model profiler,
-combo suggester, task router. The view has a **Run profiler** button that
-classifies every model live, builds the combos and lists them with their
-failover chain:
+combo suggester, task router, **subagent router** and **project profile**.
+The view has a **Run profiler** button that classifies every model live,
+builds the combos and lists them with their failover chain:
 
 ![JEV 9Router view](docs/jev-router.png)
+
+**Task → subagent routing (inside Claude Code, no tmux).** When you type a
+free-text prompt, the `jev-task-router` hook classifies it (System One,
+zero generative LLM) and injects a delegation directive. If the task matches
+a JEV subagent — `jev-writing-code`, `jev-docs`, `jev-debugging`, … (one per
+task type, generated into `~/.claude/agents/`) — Claude Code delegates it to
+that subagent, which runs on the combo mapped in `router.task_combos`
+(`claude-coder`, `claude-tools`, `claude-tudao`). Validated end-to-end:
+Pong → `claude-coder` → `cc/claude-haiku-4-5`, 7 tests, real gateway logs.
+
+**Project profile.** `node scripts/jev-profile.js` scans a repo and writes
+`.claude/jev-profile.md` (stack, layers, patterns, test framework, code
+style, and **design tokens**). JEV subagents read it before writing code, so
+new work follows the existing architecture and never invents colors, spacing
+or icons. Validated on an Express + CQRS + Repository codebase: layers and
+patterns detected, `node:test` recognized, and a front-end feature used only
+the project's CSS variables (`--color-primary`, `--spacing-*`, …).
+See `docs/validated-features.md` for the full validation log.
 
 #### `/jev-discover` — Hybrid Discovery Pipeline
 

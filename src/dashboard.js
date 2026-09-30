@@ -1216,13 +1216,22 @@ function projectShort(p) {
         const features = [
           ['model_profiler', 'Model profiler', 'classify every model by its best task'],
           ['combo_suggester', 'Combo suggester', 'build optimized combos with failover chains'],
-          ['task_router', 'Task router', 'route each task to the best model/combo']
+          ['task_router', 'Task router', 'route each task to the best model/combo'],
+          ['subagent_router', 'Subagent router', 'delegate each task to a JEV subagent that runs on the right combo'],
+          ['project_profile', 'Project profile', 'scan the repo and read .claude/jev-profile.md so new code follows the architecture and design system']
         ];
         rf.innerHTML = features.map(([f, name, desc]) => {
           const on = jevConfig?.router?.[f] !== false;
-          return '<div class="cfg-item">' +
+          const tips = {
+            model_profiler: 'Runs JEV System One over the live 9Router catalog and scores each model by its best task (writing_code, planning, tests...).',
+            combo_suggester: 'Groups profiled models by task and builds combos (primary + failover chain) with names Claude Code accepts (claude-writing-code, ...).',
+            task_router: 'Classifies a free-text prompt into a JEV task type and maps it to the best combo. Zero generative LLM cost — System One choice/score only.',
+            subagent_router: 'Injects a delegation directive on every prompt: when the task matches a JEV subagent (jev-writing-code, jev-docs...), Claude Code runs it on that subagent\u2019s combo. Subagents live in ~/.claude/agents/.',
+            project_profile: 'Generates .claude/jev-profile.md (stack, layers, patterns, tests, code style, design tokens). JEV subagents read it before coding so new work matches the project architecture and never invents colors/spacing/icons.'
+          };
+          return '<div class="cfg-item" title="' + (tips[f] || desc) + '">' +
             '<div class="cfg-meta"><div class="cfg-name">' + name + '</div><div class="cfg-desc">' + desc + '</div></div>' +
-            '<div class="cfg-controls"><label class="toggle"><input type="checkbox" data-router="' + f + '" ' + (on ? 'checked' : '') + '><span class="slider"></span></label></div>' +
+            '<div class="cfg-controls"><label class="toggle" title="' + (tips[f] || desc) + '"><input type="checkbox" data-router="' + f + '" ' + (on ? 'checked' : '') + '><span class="slider"></span></label></div>' +
             '</div>';
         }).join('');
       }

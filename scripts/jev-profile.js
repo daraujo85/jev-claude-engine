@@ -1,0 +1,293 @@
+#!/usr/bin/env node
+/**
+ * JEV Project Profile — scan a repo and emit .claude/jev-profile.md
+ * describing the architecture, layers, code style and test conventions.
+ * Subagents read this before writing code so new work stays coherent.
+ *
+ * Usage: node scripts/jev-profile.js [dir] [--json]
+ *
+ * Detection is heuristic and file-based (no dependency on a language
+ * toolchain). It reads config/manifest files, scans folder structure and
+ * samples source files for style markers. Output is a compact Markdown
+ * profile tuned for LLM consumption.
+ */
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
+import { join, extname, basename, dirname, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { dirname as pathDirname } from 'node:path';
+
+const __dirname = pathDirname(fileURLToPath(import.meta.url));
+const ROOT = process.argv[2] || process.cwd();
+const AS_JSON = process.argv.includes('--json');
+
+const MAX_DIR_DEPTH = 4;
+const MAX_SOURCE_SAMPLES = 40;
+
+function walk(dir, depth = 0, acc = []) {
+  if (depth > MAX_DIR_DEPTH) return acc;
+  let entries = [];
+  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return acc; }
+  for (const e of entries) {
+    if (e.name.startsWith('.') || e.name === 'node_modules' || e.name === 'vendor' || e.name === 'dist' || e.name === 'build') continue;
+    const full = join(dir, e.name);
+    if (e.isDirectory()) walk(full, depth + 1, acc);
+    else acc.push(full);
+  }
+  return acc;
+}
+
+function readIfExists(p) {
+  try { return readFileSync(p, 'utf8'); } catch { return null; }
+}
+
+function detectStack(root) {
+  const stack = [];
+  const markers = [];
+  if (existsSync(join(root, 'package.json'))) {
+    const pkg = readIfExists(join(root, 'package.json'));
+    try {
+      const j = JSON.parse(pkg);
+      const deps = { ...(j.dependencies || {}), ...(j.devDependencies || {}) };
+      const has = (k) => Object.keys(deps).some(d => d.includes(k));
+      if (has('react')) stack.push('React');
+      if (has('next')) stack.push('Next.js');
+      if (has('vue')) stack.push('Vue');
+      if (has('angular')) stack.push('Angular');
+      if (has('express') || has('fastify') || has('nest')) stack.push('Node/Express');
+      if (has('typescript') || has('ts-node')) stack.push('TypeScript');
+      if (has('jest')) stack.push('Jest');
+      if (has('vitest')) stack.push('Vitest');
+      if (has('eslint')) markers.push('ESLint');
+      if (has('prettier')) markers.push('Prettier');
+      if (has('eslint-config-airbnb')) markers.push('Airbnb style');
+      if (has('eslint-config-standard')) markers.push('Standard style');
+      stack.push(`node ${j.engines?.node ? 'v' + j.engines.node : ''}`.trim());
+    } catch {}
+  }
+  for (const f of ['composer.json', 'pom.xml', 'build.gradle', 'Cargo.toml', 'go.mod', 'requirements.txt', 'pyproject.toml', 'Gemfile', '*.csproj', '*.sln']) {
+    if (existsSync(join(root, f)) || walk(root).some(p => basename(p).endsWith(f.replace('*', '')))) {
+      if (f.includes('csproj') || f.includes('sln')) stack.push('.NET/C#');
+      else if (f === 'composer.json') stack.push('PHP/Composer');
+      else if (f === 'pom.xml') stack.push('Java/Maven');
+      else if (f === 'Cargo.toml') stack.push('Rust');
+      else if (f === 'go.mod') stack.push('Go');
+      else if (f.includes('requirements') || f === 'pyproject.toml') stack.push('Python');
+      else if (f === 'Gemfile') stack.push('Ruby');
+    }
+  }
+  return { stack: [...new Set(stack)], markers };
+}
+
+function detectLayers(root, files) {
+  const layers = new Set();
+  for (const f of files) {
+    const rel = f.startsWith(root) ? f.slice(root.length).split(sep).filter(Boolean) : f.split(sep).filter(Boolean);
+    for (const seg of rel) {
+      const s = seg.toLowerCase();
+      if (['domain', 'application', 'app', 'infrastructure', 'infra', 'presentation', 'controllers', 'api', 'services', 'repositories', 'models', 'entities', 'config', 'core', 'shared', 'features', 'modules', 'ui', 'views', 'components', 'interfaces', 'contracts', 'migrations', 'tests', 'test', 'specs', 'ports', 'adapters', 'use-cases', 'handlers', 'queries', 'commands', 'routes', 'middlewares'].includes(s)) {
+        layers.add(seg);
+      }
+    }
+  }
+  return [...layers];
+}
+
+function detectPatterns(root, files) {
+  const patterns = [];
+  const allSrc = files.slice(0, MAX_SOURCE_SAMPLES).map(readIfExists).join('\n');
+  const has = (re) => allSrc ? new RegExp(re, 'i').test(allSrc) : false;
+  if (has('class.*Controller|@Controller|Controller')) patterns.push('MVC/Controllers');
+  if (has('class \\w*Repository|interface.*Repository|extends Repository|@Repository')) patterns.push('Repository pattern');
+  if (has('class \\w*Service|interface.*Service|@Service')) patterns.push('Service layer');
+  if (has('CommandHandler|ICommandHandler|IMediator|CQRS|MediatR|CommandBus|QueryBus|bus\\.dispatch|bus\\.ask|use-cases/commands|use-cases/queries')) patterns.push('CQRS/Command-Query');
+  if (has('abstract class|@abstract|Interface segregation')) patterns.push('OOP/abstractions');
+  if (has('useState|useEffect|useReducer|@Component|extends Component')) patterns.push('React hooks/components');
+  if (has('@Entity|@Table|@Column|\\.Model\\(')) patterns.push('ORM/Entities');
+  if (has('@ApiOperation|@swagger|swagger|OpenAPI')) patterns.push('OpenAPI/Swagger');
+  if (has('docker-compose|Dockerfile')) patterns.push('Docker');
+  if (has('event\\(|emit\\(|subscribe\\(|EventEmitter')) patterns.push('Event-driven');
+  if (has('@Inject|useInjection|get\\(|container\\.')) patterns.push('DI container');
+  return patterns;
+}
+
+function detectTests(root, files) {
+  const testFiles = files.filter(f => /\.(test|spec)\./.test(basename(f)) || basename(f).includes('_test') || basename(f).includes('Tests'));
+  const dirs = new Set(testFiles.map(f => dirname(f).split(sep).pop()));
+  let framework = '';
+  const sample = testFiles.slice(0, 3).map(readIfExists).join('\n');
+  if (/node:test|node:assert/.test(sample)) framework = 'node:test';
+  else if (/@Test/.test(sample)) framework = 'JUnit/xUnit-style annotations';
+  else if (/\[Fact\]|\[Theory\]/.test(sample)) framework = 'xUnit/NUnit';
+  else if (/def test_|class Test/.test(sample)) framework = 'pytest/unittest';
+  else if (/it\(|describe\(|test\(/.test(sample)) framework = 'Jest/Vitest/Mocha (describe/it)';
+  else framework = 'unclear';
+  return { count: testFiles.length, dirs: [...dirs].slice(0, 5), framework };
+}
+
+function detectStyle(root, files) {
+  const src = files.filter(f => /\.(ts|tsx|js|jsx|py|cs|java|go|rb|php)$/.test(f)).slice(0, MAX_SOURCE_SAMPLES);
+  const samples = src.map(readIfExists).filter(Boolean).join('\n');
+  if (!samples) return {};
+  const lines = samples.split('\n');
+  const indented = lines.filter(l => /^    |^\t/.test(l));
+  const style = {};
+  style.indent = indented.length > 0 && /^\t/.test(indented[0]) ? 'tabs' : 'spaces';
+  style.semicolons = lines.filter(l => /;\s*$/.test(l)).length > lines.filter(l => /\S+$/.test(l) && !/[{}\[\];\s]$/.test(l)).length / 2 ? 'yes' : 'no/unsure';
+  style.singleQuotes = /'[^']*'/.test(samples) && !/"[^"]*"/.test(samples.slice(0, 2000));
+  style.maxLine = Math.max(...lines.map(l => l.length), 0);
+  style.naming = /[a-z][a-zA-Z0-9]*\(/.test(samples) ? 'camelCase' : (/([a-z_]+)\s*\(/.test(samples) ? 'snake_case' : 'unknown');
+  return style;
+}
+
+function detectDesignSystem(root, files) {
+  const uiFiles = files.filter(f => /\.(css|scss|sass|less|tsx|jsx|vue|ts|js)$/.test(f));
+  const uiSamples = uiFiles.slice(0, 60).map(readIfExists).filter(Boolean).join('\n');
+  const cssSamples = uiFiles.filter(f => /\.(css|scss|sass|less)$/.test(f)).map(readIfExists).filter(Boolean).join('\n');
+
+  const ds = { hasDesignSystem: false, tokens: [], uiLib: [], components: [], icons: [], notes: [] };
+
+  // CSS custom properties (design tokens) — the core signal.
+  const tokenRegex = /--([a-z0-9-]+)\s*:/g;
+  let m;
+  const tokens = new Set();
+  while ((m = tokenRegex.exec(cssSamples)) !== null) tokens.add(m[1]);
+  if (tokens.size > 0) {
+    ds.hasDesignSystem = true;
+    const tokenList = [...tokens];
+    ds.tokens = tokenList.slice(0, 30);
+    const categories = new Set();
+    for (const t of tokenList) {
+      const cat = t.split('-')[0];
+      if (['color', 'spacing', 'font', 'size', 'radius', 'shadow', 'zindex', 'breakpoint', 'border', 'transition', 'primary', 'secondary', 'surface', 'text', 'background'].includes(cat)) categories.add(cat);
+    }
+    if (categories.size) ds.notes.push(`token categories: ${[...categories].join(', ')}`);
+  }
+
+  // UI library / framework signals (Tailwind, MUI, shadcn, Chakra, Mantine...).
+  const pkg = readIfExists(join(root, 'package.json'));
+  const depStr = pkg || '';
+  const libChecks = [
+    ['tailwindcss', 'Tailwind'],
+    ['@mui/', 'Material UI'],
+    ['@radix-ui', 'Radix (shadcn-style)'],
+    ['@chakra-ui', 'Chakra'],
+    ['@mantine', 'Mantine'],
+    ['bootstrap', 'Bootstrap'],
+    ['antd', 'Ant Design'],
+    ['@emotion', 'Emotion'],
+    ['styled-components', 'styled-components'],
+    ['@heroicons', 'Heroicons']
+  ];
+  for (const [k, label] of libChecks) {
+    if (depStr.includes(k) || /className="[^"]*[a-z-]+:[a-z-]+/.test(uiSamples)) ds.uiLib.push(label);
+  }
+  if (/@layer|@tailwind\b/.test(cssSamples)) ds.uiLib.push('Tailwind (css)');
+
+  // Reusable components defined in the codebase.
+  const compDirs = ['components', 'ui', 'widgets'];
+  const compSet = new Set();
+  for (const f of files) {
+    const parts = f.split(sep);
+    if (parts.some(p => compDirs.includes(p.toLowerCase())) && /\.(tsx|jsx|vue|ts|js)$/.test(f)) {
+      compSet.add(basename(f).replace(/\.(tsx|jsx|vue|ts|js)$/, ''));
+    }
+  }
+  if (compSet.size) {
+    ds.hasDesignSystem = true;
+    ds.components = [...compSet].slice(0, 25);
+  }
+
+  // Icon usage.
+  const iconChecks = [
+    ['lucide-react', 'lucide'],
+    ['react-icons', 'react-icons'],
+    ['@heroicons', 'heroicons'],
+    ['@tabler/icons', 'tabler'],
+    ['@fortawesome', 'fontawesome'],
+    ['@mui/icons-material', 'mui-icons']
+  ];
+  for (const [k, label] of iconChecks) {
+    if (depStr.includes(k)) ds.icons.push(label);
+  }
+  if (ds.icons.length === 0 && /<svg\b/.test(uiSamples)) ds.icons.push('inline SVG');
+
+  return ds;
+}
+
+function buildProfile(root) {
+  const files = walk(root);
+  const stack = detectStack(root);
+  const layers = detectLayers(root, files);
+  const patterns = detectPatterns(root, files);
+  const tests = detectTests(root, files);
+  const style = detectStyle(root, files);
+  const designSystem = detectDesignSystem(root, files);
+  return { root, stack: stack.stack, markers: stack.markers, layers, patterns, tests, style, designSystem };
+}
+
+const profile = buildProfile(ROOT);
+
+if (AS_JSON) {
+  console.log(JSON.stringify(profile, null, 2));
+} else {
+  const md = `# Project profile: ${basename(ROOT)}
+
+Auto-generated by JEV. Subagents: read this before writing code and follow
+the conventions below so new work stays coherent with the codebase.
+
+## Stack
+- ${profile.stack.join('\n- ') || 'not detected'}
+
+${profile.markers.length ? `## Tooling markers
+- ${profile.markers.join('\n- ')}` : ''}
+
+## Architecture layers (observed)
+${profile.layers.length ? '- ' + profile.layers.join('\n- ') : '_none obvious — keep the existing folder structure_'}
+
+## Patterns (observed)
+${profile.patterns.length ? '- ' + profile.patterns.join('\n- ') : '_none obvious_'}
+
+## Tests
+- Count: ${profile.tests.count}
+- Framework: ${profile.tests.framework}
+${profile.tests.dirs.length ? '- Layout: ' + profile.tests.dirs.join(', ') : ''}
+
+## Code style (sampled)
+- Indentation: ${profile.style.indent || 'n/a'}
+- Semicolons: ${profile.style.semicolons || 'n/a'}
+- Max line length observed: ${profile.style.maxLine || 'n/a'}
+- Naming: ${profile.style.naming || 'n/a'}
+
+## Design system (front-end)
+${profile.designSystem.hasDesignSystem
+  ? (profile.designSystem.tokens.length
+      ? '- Design tokens (CSS vars): `' + profile.designSystem.tokens.join('`, `') + '`\n'
+      : '') +
+    (profile.designSystem.uiLib.length
+      ? '- UI library: ' + profile.designSystem.uiLib.join(', ') + '\n'
+      : '') +
+    (profile.designSystem.components.length
+      ? '- Existing components: ' + profile.designSystem.components.join(', ') + '\n'
+      : '') +
+    (profile.designSystem.icons.length
+      ? '- Icons: ' + profile.designSystem.icons.join(', ') + '\n'
+      : '') +
+    (profile.designSystem.notes.length
+      ? '- Notes: ' + profile.designSystem.notes.join('; ')
+      : '')
+  : '_no design tokens/component library detected — for UI work, follow the closest existing styling (colors, spacing, fonts) seen in the code._'}
+
+## Rule
+Match the existing structure and style. Do not introduce a new folder layout,
+a different test framework, or a different formatting style. For front-end:
+use the design tokens, UI library and existing components above — never invent
+colors, spacing or icons that are not already in the codebase. Extend what is
+already here.
+`;
+  const outPath = join(ROOT, '.claude', 'jev-profile.md');
+  try { const { mkdirSync } = await import('node:fs'); mkdirSync(dirname(outPath), { recursive: true }); } catch {}
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(outPath, md);
+  console.log(`Profile written: ${outPath}`);
+  console.log(`Stack: ${profile.stack.join(', ') || 'n/a'} · Layers: ${profile.layers.length} · Tests: ${profile.tests.count} · Style: ${profile.style.indent}/${profile.style.naming}`);
+}

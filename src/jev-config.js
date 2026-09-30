@@ -16,7 +16,21 @@ export const DEFAULT_CONFIG = {
     api_key: '',
     model_profiler: true,
     combo_suggester: true,
-    task_router: true
+    task_router: true,
+    // Map each JEV task type to a 9Router combo (must be a live combo).
+    // Used by the JEV subagent router hook to pick the subagent model.
+    task_combos: {
+      writing_code: 'claude-coder',
+      refactoring: 'claude-coder',
+      debugging: 'claude-coder',
+      tests: 'claude-coder',
+      planning_architecture: 'claude-tudao',
+      data_analysis: 'claude-tudao',
+      creative_writing: 'claude-tudao',
+      transcription: 'claude-tudao',
+      code_review: 'claude-tools',
+      docs: 'claude-tools'
+    }
   },
   pricing: {
     price_per_million_input: 0.04,
