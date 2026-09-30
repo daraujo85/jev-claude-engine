@@ -305,9 +305,15 @@ export function createDashboardHtml(initialData, projectDir) {
     /* ---- Config (Hooks & Skills) ---- */
     .cfg-item {
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-      padding: 13px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 13px 18px; display: flex; align-items: center; gap: 14px;
       margin-bottom: 10px;
     }
+    .cfg-item .cfg-icon {
+      width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+      display: grid; place-items: center;
+      background: var(--surface-2); border: 1px solid var(--border-strong);
+    }
+    .cfg-item .cfg-icon svg { width: 18px; height: 18px; color: var(--accent); }
     .cfg-item .cfg-meta { min-width: 0; flex: 1; }
     .cfg-item .cfg-name { font-weight: 600; font-size: 12.5px; }
     .cfg-item .cfg-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -832,6 +838,20 @@ function projectShort(p) {
       min_score: 'Min score',
       max_steps: 'Max steps'
     };
+    const CFG_ICONS = {
+      // hooks
+      'jev-rule-guard': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+      'jev-skill-picker': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>',
+      'jev-fast-compact': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><circle cx="12" cy="12" r="3.5"/></svg>',
+      'jev-test-verifier': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h10M4 17h7"/><circle cx="18" cy="17" r="3"/><path d="M18 15v2l1.5 1.5"/></svg>',
+      // skills
+      'jev-discover': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M15.5 15.5l4 4"/></svg>',
+      'jev-explore': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h12"/><path d="M17 14l3 3-3 3"/></svg>',
+      'jev-review': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10H7a3 3 0 0 0-3 3z"/><path d="M8 8h8M8 11h8M8 14h4"/></svg>',
+      'jev-anti-regression': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M12 3L8 7M12 3l4 4"/><path d="M5 14v3a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-3"/></svg>',
+      'jev-plan-evaluator': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v4a2 2 0 0 0 4 0V3"/><path d="M5 21h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"/><path d="M9 14h6M12 11v6"/></svg>',
+      'jev-browser-test': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 8h18M8 21h8M12 17v4"/><circle cx="7" cy="12.5" r="0.6" fill="currentColor"/></svg>'
+    };
     let jevConfig = {};
 
     function fieldLabel(f) {
@@ -848,7 +868,9 @@ function projectShort(p) {
         return '<label class="cfg-field">' + fieldLabel(f) +
           '<input type="number" step="any" data-kind="' + kind + '" data-name="' + name + '" data-field="' + f + '" value="' + val + '"></label>';
       }).join('');
+      const icon = CFG_ICONS[name] || '';
       return '<div class="cfg-item">' +
+        '<div class="cfg-icon">' + icon + '</div>' +
         '<div class="cfg-meta"><div class="cfg-name">' + meta.name + '</div><div class="cfg-desc">' + meta.desc + '</div></div>' +
         '<div class="cfg-controls">' + fields +
         '<label class="toggle" title="Enable / disable"><input type="checkbox" data-kind="' + kind + '" data-name="' + name + '" data-field="enabled" ' + (enabled ? 'checked' : '') + '><span class="slider"></span></label>' +
