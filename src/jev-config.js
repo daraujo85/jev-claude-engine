@@ -81,7 +81,7 @@ export function configPath() {
   return path.join(dir, 'config.json');
 }
 
-function deepMerge(base, override) {
+export function deepMerge(base, override) {
   const out = { ...base };
   for (const [k, v] of Object.entries(override || {})) {
     if (v && typeof v === 'object' && !Array.isArray(v) && base[k] && typeof base[k] === 'object') {

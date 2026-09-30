@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readTelemetrySummary } from './telemetry.js';
-import { loadConfig, saveConfig, resetConfig, DEFAULT_CONFIG } from './jev-config.js';
+import { loadConfig, saveConfig, resetConfig, DEFAULT_CONFIG, deepMerge } from './jev-config.js';
 import { listModels, profileModels, suggestCombos, routerFeatures } from './model-router.js';
 import { STRINGS, DEFAULT_LANG, currentLang } from './i18n.js';
 import { envKey } from './providers.js';
@@ -1611,7 +1611,11 @@ export function startDashboardServer(options = {}) {
         req.on('data', c => { body += c; if (body.length > 1e6) req.destroy(); });
         req.on('end', () => {
           try {
-            const cfg = JSON.parse(body || '{}');
+            const patch = JSON.parse(body || '{}');
+            // merge the patch over the CURRENT config (not defaults), so a
+            // partial body (e.g. { ui: { lang } }) keeps router combos, keys,
+            // hooks and skills intact.
+            const cfg = deepMerge(loadConfig(), patch);
             const merged = saveConfig(cfg);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true, config: merged }));
