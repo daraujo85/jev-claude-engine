@@ -541,6 +541,7 @@ export function createDashboardHtml(initialData, projectDir) {
       const text = e.input_preview || (e.feature || 'general') + ' evaluation';
       const el = document.createElement('div');
       el.className = 'stream-item is-new';
+      el.title = itemTitle(e);
       el.innerHTML = '<span class="s-time">' + t + '</span>' +
         '<span class="s-feat">' + (e.feature || 'general') + '</span>' +
         '<span class="s-origin">' + originLabel(e) + '</span>' +
@@ -565,7 +566,7 @@ export function createDashboardHtml(initialData, projectDir) {
         const cls = i === 0 && animate ? 'stream-item is-new' : 'stream-item';
         const t = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('pt-BR', { hour12: false }) : '--:--:--';
         const text = e.input_preview || (e.feature || 'general') + ' evaluation';
-        html += '<div class="' + cls + '">' +
+        html += '<div class="' + cls + '" title="' + itemTitle(e) + '">' +
           '<span class="s-time">' + t + '</span>' +
           '<span class="s-feat">' + (e.feature || 'general') + '</span>' +
           '<span class="s-origin">' + originLabel(e) + '</span>' +
@@ -607,6 +608,12 @@ export function createDashboardHtml(initialData, projectDir) {
       const proj = projectShort(e.origin_project);
       const full = e.origin_project ? String(e.origin_project) : '';
       return agentSvg(agent) + '<span title="' + escapeAttr(agentLabel(agent) + (full ? ' · ' + full : '')) + '">' + escapeHtml(agentLabel(agent)) + (proj ? ' · ' + escapeHtml(proj) : '') + '</span>';
+    }
+    function itemTitle(e) {
+      const agent = e.origin_agent ? agentLabel(e.origin_agent) : 'CLI';
+      const proj = e.origin_project ? String(e.origin_project) : '';
+      const txt = e.input_preview || (e.feature || 'general') + ' evaluation';
+      return escapeAttr([agent, proj, txt].filter(Boolean).join(' · '));
     }
 function projectShort(p) {
       if (!p) return '';
