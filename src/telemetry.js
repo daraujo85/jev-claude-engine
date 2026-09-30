@@ -5,6 +5,27 @@ import os from 'node:os';
 /**
  * Token and Latency Telemetry Recorder for JEV Decisions
  */
+/**
+ * Detect which coding agent is running (by env markers) and the current
+ * project directory — used to annotate telemetry with where a decision ran.
+ */
+export function detectOrigin(cwd = process.cwd()) {
+  let agent = 'cli';
+  const markers = [
+    { agent: 'opencode', test: () => process.env.OPENCODE === '1' || !!process.env.OPENCODE_PID },
+    { agent: 'claude-code', test: () => !!process.env.CLAUDE_CODE_SESSION_ID || !!process.env.CLAUDE_PROJECT_DIR || !!process.env.CLAUDE_CODE_ENTRYPOINT },
+    { agent: 'codex', test: () => !!process.env.CODEX_HOME || !!process.env.CODEX_SESSION_ID },
+    { agent: 'agy', test: () => !!process.env.ANTIGRAVITY_HOME || !!process.env.AGY_SESSION_ID || !!process.env.GEMINI_CLI_SESSION_ID }
+  ];
+  for (const m of markers) {
+    try {
+      if (m.test()) { agent = m.agent; break; }
+    } catch { /* ignore */ }
+  }
+  const project = process.env.CLAUDE_PROJECT_DIR || cwd || '';
+  return { agent, project };
+}
+
 export function getTelemetryDir(projectDir = process.cwd()) {
   const dir = path.join(projectDir, '.jev');
   if (!fs.existsSync(dir)) {
@@ -18,10 +39,13 @@ export function recordTelemetry(entry, projectDir = process.cwd()) {
     const dir = getTelemetryDir(projectDir);
     const filePath = path.join(dir, 'telemetry.jsonl');
 
+    const origin = detectOrigin(projectDir);
     const fullEntry = {
       timestamp: new Date().toISOString(),
       feature: entry.feature || 'general',
       provider: entry.provider || 'unknown',
+      origin_agent: entry.origin_agent || origin.agent,
+      origin_project: entry.origin_project || origin.project,
       jev_latency_ms: entry.jev_latency_ms || 120,
       jev_input_tokens: entry.jev_input_tokens || 0,
       jev_cost_usd: entry.jev_cost_usd || 0.000008,

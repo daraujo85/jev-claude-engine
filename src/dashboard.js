@@ -189,25 +189,38 @@ export function createDashboardHtml(initialData, projectDir) {
       background: var(--surface);
       border: 1px solid var(--border); border-radius: 10px;
       padding: 6px 0;
-      mask-image: linear-gradient(180deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
-      -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+      /* Topo (item novo) opaco; fade suave só no rodapé (itens antigos) */
+      mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 72px), transparent 100%);
+      -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 72px), transparent 100%);
     }
     .stream-item {
       padding: 9px 18px;
       border-bottom: 1px solid var(--border);
       display: flex; gap: 12px; align-items: baseline;
-      opacity: 0.28;
+      opacity: 0.16;
       transition: opacity .6s ease;
       font-size: 12px;
     }
+    .stream-item:nth-child(2) { opacity: 0.3; }
+    .stream-item:nth-child(3) { opacity: 0.42; }
+    .stream-item:nth-child(4) { opacity: 0.52; }
+    .stream-item:nth-child(5) { opacity: 0.6; }
     .stream-item:last-child { border-bottom: none; }
     .stream-item .s-time { color: var(--muted); font-size: 10.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .stream-item .s-feat { color: var(--accent); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; font-weight: 600; }
+    .stream-item .s-origin { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 10.5px; white-space: nowrap; }
+    .stream-item .s-origin svg { width: 11px; height: 11px; flex-shrink: 0; }
+    .stream-item .s-origin .ag-opencode { color: var(--accent); }
+    .stream-item .s-origin .ag-claude-code { color: var(--amber); }
+    .stream-item .s-origin .ag-codex { color: var(--cyan); }
+    .stream-item .s-origin .ag-agy { color: var(--good); }
+    .stream-item .s-origin .ag-unknown { color: var(--muted); }
     .stream-item .s-text { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
     .stream-item.is-new {
       opacity: 1;
-      animation: streamIn .8s ease, shimmer 2.4s ease 1;
     }
+    .stream-item.is-new .s-time,
+    .stream-item.is-new .s-feat { color: var(--accent); }
     .stream-item.is-new .s-text {
       background: linear-gradient(90deg, var(--fg) 0%, #ffffff 50%, var(--fg) 100%);
       background-size: 200% 100%;
@@ -219,6 +232,11 @@ export function createDashboardHtml(initialData, projectDir) {
     @keyframes streamIn {
       from { opacity: 0; transform: translateY(-6px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes wheelIn {
+      0% { opacity: 0; transform: translateY(-26px) scaleY(0.9); filter: blur(2px); }
+      60% { opacity: 1; }
+      100% { opacity: 1; transform: translateY(0) scaleY(1); filter: blur(0); }
     }
     @keyframes shimmerText {
       0% { background-position: 200% 0; }
@@ -495,38 +513,89 @@ export function createDashboardHtml(initialData, projectDir) {
     }
 
     // --- Live input stream (newest shimmer, older faded) ---
-    let lastStreamKey = '';
+    let streamItems = [];
+    let lastTopKey = '';
     function renderStream(entries) {
-      const list = document.getElementById('stream-list');
       const items = (entries || []).slice(0, 12);
-      if (items.length === 0) { list.innerHTML = ''; return; }
-      const newestKey = items[0].timestamp + '_' + (items[0].feature || '') + '_' + (items[0].jev_latency_ms || '');
-      const isRefresh = newestKey !== lastStreamKey;
-      lastStreamKey = newestKey;
-
+      if (items.length === 0) return;
+      const top = items[0];
+      const key = (top.timestamp || '') + '_' + (top.feature || '') + '_' + (top.jev_latency_ms || '') + '_' + (top.input_preview || '').slice(0, 40);
+      // Only animate when a genuinely new line arrived (new top key).
+      if (key === lastTopKey) {
+        // keep list in sync (e.g. counts changed) without scroll animation
+        streamItems = items;
+        return;
+      }
+      const hadItems = streamItems.length > 0;
+      lastTopKey = key;
+      streamItems = items;
+      const list = document.getElementById('stream-list');
+      if (!hadItems) {
+        paintStream(false);
+        return;
+      }
+      // New line: prepend with a smooth "wheel" drop, drop the oldest.
+      const e = top;
+      const t = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('pt-BR', { hour12: false }) : '--:--:--';
+      const text = e.input_preview || (e.feature || 'general') + ' evaluation';
+      const el = document.createElement('div');
+      el.className = 'stream-item is-new';
+      el.innerHTML = '<span class="s-time">' + t + '</span>' +
+        '<span class="s-feat">' + (e.feature || 'general') + '</span>' +
+        '<span class="s-origin">' + originLabel(e) + '</span>' +
+        '<span class="s-text">' + escapeHtml(text) + '</span>';
+      list.insertBefore(el, list.firstChild);
+      // drop oldest to keep the list bounded
+      while (list.children.length > 10) list.removeChild(list.lastChild);
+      // re-fade all existing (they shift down)
+      for (let i = 0; i < list.children.length; i++) {
+        const c = list.children[i];
+        if (i === 0) continue;
+        c.classList.remove('is-new');
+        c.style.opacity = String(Math.max(0.16, 0.9 - i * 0.11));
+      }
+      // wheel easing on the incoming item
+      el.style.animation = 'wheelIn 0.7s cubic-bezier(0.22, 1, 0.36, 1)';
+    }
+    function paintStream(animate) {
+      const list = document.getElementById('stream-list');
       let html = '';
-      items.forEach((e, i) => {
-        const cls = i === 0 ? 'stream-item is-new' : 'stream-item';
+      streamItems.forEach((e, i) => {
+        const cls = i === 0 && animate ? 'stream-item is-new' : 'stream-item';
         const t = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('pt-BR', { hour12: false }) : '--:--:--';
         const text = e.input_preview || (e.feature || 'general') + ' evaluation';
         html += '<div class="' + cls + '">' +
           '<span class="s-time">' + t + '</span>' +
           '<span class="s-feat">' + (e.feature || 'general') + '</span>' +
+          '<span class="s-origin">' + originLabel(e) + '</span>' +
           '<span class="s-text">' + escapeHtml(text) + '</span>' +
           '</div>';
       });
       list.innerHTML = html;
-
-      if (isRefresh) {
-        // auto-scroll: newest at top, older flow down — animate container
-        list.style.transition = 'transform 0.8s ease';
-        list.style.transform = 'translateY(0)';
-      }
     }
     function escapeHtml(s) {
       return String(s || '').replace(/[&<>"']/g, c => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
       ));
+    }
+    // --- per-agent SVG marks (colors follow dashboard tokens) ---
+    const AGENT_SVGS = {
+      'opencode': '<svg viewBox="0 0 12 12" class="ag-opencode" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="6" cy="6" r="4.4"/><path d="M6 1.6v2.9M6 7.5v2.9"/></svg>',
+      'claude-code': '<svg viewBox="0 0 12 12" class="ag-claude-code" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 1.5l4 3-4 6-4-6z"/></svg>',
+      'codex': '<svg viewBox="0 0 12 12" class="ag-codex" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 9.5V2.5L10.2 6z"/><path d="M1.8 2.5h2.1M6 2.5h4.2M1.8 6h2.1M6 6h4.2M1.8 9.5h2.1M6 9.5h4.2"/></svg>',
+      'agy': '<svg viewBox="0 0 12 12" class="ag-agy" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="1.8" width="8.4" height="8.4" rx="1.6"/><path d="M4.5 7.6V4.4M6 7.6V3.4M7.5 7.6V5.4"/></svg>',
+      'unknown': '<svg viewBox="0 0 12 12" class="ag-unknown" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="6" cy="6" r="4.4"/><path d="M6 6l2.4-2.4"/></svg>'
+    };
+    function agentSvg(agent) {
+      return AGENT_SVGS[agent] || AGENT_SVGS.unknown;
+    }
+    function agentLabel(agent) {
+      const map = { opencode: 'OpenCode', 'claude-code': 'Claude Code', codex: 'Codex', agy: 'AntGravity', unknown: 'CLI' };
+      return map[agent] || 'CLI';
+    }
+    function originLabel(e) {
+      const agent = e.origin_agent || 'unknown';
+      return agentSvg(agent) + '<span>' + escapeHtml(agentLabel(agent)) + '</span>';
     }
 
     // --- Latency line/area chart (inline SVG, last 50 decisions) ---
