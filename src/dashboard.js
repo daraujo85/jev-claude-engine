@@ -4,7 +4,7 @@ import { readTelemetrySummary } from './telemetry.js';
 
 export function createDashboardHtml(initialData, projectDir) {
   return `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -60,11 +60,14 @@ export function createDashboardHtml(initialData, projectDir) {
       margin-bottom: 16px;
     }
     .brand-mark {
-      width: 26px; height: 26px;
-      border-radius: 7px;
-      background: linear-gradient(135deg, #7c8cf8, #4cc3d9);
+      width: 34px; height: 34px;
+      border-radius: 9px;
       flex-shrink: 0;
+      display: grid; place-items: center;
+      background: var(--surface-2);
+      border: 1px solid var(--border-strong);
     }
+    .brand-mark svg { width: 22px; height: 22px; display: block; }
     .brand-name { font-weight: 650; font-size: 13.5px; letter-spacing: -0.01em; }
     .brand-sub { font-size: 10.5px; color: var(--muted); letter-spacing: 0.02em; }
     .nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
@@ -191,17 +194,40 @@ export function createDashboardHtml(initialData, projectDir) {
 <body>
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark"></div>
+      <div class="brand-mark">
+        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="jev-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#7c8cf8"/>
+              <stop offset="1" stop-color="#4cc3d9"/>
+            </linearGradient>
+          </defs>
+          <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#jev-grad)" opacity="0.16"/>
+          <rect x="1" y="1" width="30" height="30" rx="8" stroke="url(#jev-grad)" stroke-width="1.4"/>
+          <path d="M16 8v5.5" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M16 18.5V24" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M10.2 10.9l3.6 2.1" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M18.2 19l3.6 2.1" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M21.8 10.9l-3.6 2.1" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M13.8 19l-3.6 2.1" stroke="url(#jev-grad)" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="16" cy="14" r="3.2" fill="url(#jev-grad)"/>
+          <circle cx="16" cy="14" r="1.2" fill="#0d0f14"/>
+          <circle cx="16" cy="22" r="2.2" fill="url(#jev-grad)"/>
+          <circle cx="16" cy="22" r="0.8" fill="#0d0f14"/>
+          <circle cx="7.5" cy="22" r="2" fill="url(#jev-grad)"/>
+          <circle cx="24.5" cy="22" r="2" fill="url(#jev-grad)"/>
+        </svg>
+      </div>
       <div>
         <div class="brand-name">JEV Engine</div>
         <div class="brand-sub">System One · TypeSafe AI</div>
       </div>
     </div>
     <nav class="nav">
-      <span class="nav-label">Visão geral</span>
+      <span class="nav-label">Overview</span>
       <a href="#" class="nav-item active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-        Telemetria
+        Telemetry
       </a>
       <a href="#" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10m6 10V4m6 16v-7m6 7H2"/></svg>
@@ -211,74 +237,74 @@ export function createDashboardHtml(initialData, projectDir) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>
         Guardrails
       </a>
-      <span class="nav-label">Sistema</span>
+      <span class="nav-label">System</span>
       <a href="#" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m10 10l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
-        Configuração
+        Settings
       </a>
     </nav>
     <div class="sidebar-foot">
-      Motor de decisão sub-300ms.<br>
-      Fail-open em qualquer falha.
+      Sub-300ms decision engine.<br>
+      Fail-open on any failure.
     </div>
   </aside>
 
   <main>
     <div class="topbar">
       <div>
-        <h1>Telemetria do sistema</h1>
-        <div class="crumb">JEV System One · decisões em tempo real</div>
+        <h1>System telemetry</h1>
+        <div class="crumb">JEV System One · real-time decisions</div>
       </div>
       <div class="right">
-        <span class="badge">Ativo sob demanda</span>
-        <button class="btn" onclick="fetchData()">Atualizar</button>
+        <span class="badge">On-demand</span>
+        <button class="btn" onclick="fetchData()">Refresh</button>
       </div>
     </div>
 
     <div class="kpis">
       <div class="kpi bar-accent">
-        <div class="label">Tokens poupados</div>
+        <div class="label">Tokens saved</div>
         <div class="value" id="val-tokens">...</div>
-        <div class="sub">contexto que deixou de entrar no LLM</div>
+        <div class="sub">context kept out of the LLM</div>
       </div>
       <div class="kpi bar-good">
-        <div class="label">Economia estimada</div>
+        <div class="label">Estimated savings</div>
         <div class="value" id="val-cost">...</div>
-        <div class="sub">redução direta na fatura</div>
+        <div class="sub">direct billing reduction</div>
       </div>
       <div class="kpi bar-cyan">
-        <div class="label">Tempo poupado</div>
+        <div class="label">Time saved</div>
         <div class="value" id="val-time">...</div>
-        <div class="sub">espera de LLM evitada</div>
+        <div class="sub">LLM wait avoided</div>
       </div>
       <div class="kpi bar-amber">
-        <div class="label">Decisões rápidas</div>
+        <div class="label">Fast decisions</div>
         <div class="value" id="val-decisions">...</div>
-        <div class="sub">latência média <span class="cmp" id="val-latency">...</span></div>
+        <div class="sub">avg latency <span class="cmp" id="val-latency">...</span></div>
       </div>
     </div>
 
     <div class="section">
       <div class="section-head">
-        <div class="section-title">Economia por hook e skill</div>
-        <div class="section-note">tokens poupados e latência por feature</div>
+        <div class="section-title">Savings by hook and skill</div>
+        <div class="section-note">tokens saved and latency per feature</div>
       </div>
       <div class="grid" id="breakdown-container"></div>
     </div>
 
     <div class="section">
       <div class="section-head">
-        <div class="section-title">Últimas decisões</div>
-        <div class="section-note">as 20 mais recentes</div>
+        <div class="section-title">Latest decisions</div>
+        <div class="section-note">the 20 most recent</div>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Horário</th>
+              <th>Time</th>
               <th>Feature / Hook</th>
-              <th>Latência JEV</th>
-              <th>Tokens poupados</th>
+              <th>JEV latency</th>
+              <th>Tokens saved</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -288,13 +314,13 @@ export function createDashboardHtml(initialData, projectDir) {
     </div>
 
     <footer>
-      <div>Servidor leve sob demanda — Ctrl+C no terminal encerra e libera os recursos.</div>
+      <div>Lightweight on-demand server — Ctrl+C in the terminal stops it and frees all resources.</div>
       <div class="links">
         <a href="https://devsync.com.br" target="_blank" rel="noopener">devsync.com.br</a>
         <span class="sep">·</span>
         <a href="https://www.linkedin.com/company/devsync" target="_blank" rel="noopener">LinkedIn</a>
         <span class="sep">·</span>
-        <span>por Diego Araújo</span>
+        <span>by Diego Araújo</span>
       </div>
     </footer>
   </main>
