@@ -103,8 +103,6 @@ ${JSON.stringify(toolInput).slice(0, 2500)}
   );
 
   const answer = result?.answers?.has_test_coverage;
-  // If not covered, warn via systemMessage (visible in TUI) +
-  // additionalContext so Claude can act on it.
   const warnOnMissing = cfg?.hooks?.['jev-test-verifier']?.warn_on_missing_tests !== false;
   if (warnOnMissing && answer && answer.noul === false) {
     const confidence = Math.round((1 - (answer.probability || 0.2)) * 100);
@@ -115,6 +113,11 @@ ${JSON.stringify(toolInput).slice(0, 2500)}
         hookEventName: 'PostToolUse',
         additionalContext: `\n⚠️  [JEV TEST VERIFIER]: O arquivo de controle '${filename}' foi modificado, mas o JEV detectou que não há cobertura de testes correspondente (${confidence}% certeza).\nRecomenda-se gerar ou atualizar testes automatizados para validar estas regras.\n`
       }
+    }));
+  } else if (answer && answer.noul === true) {
+    // Coverage confirmed — subtle confirmation that the verifier ran.
+    process.stdout.write(JSON.stringify({
+      systemMessage: `[JEV] Test Verifier: '${path.basename(filePath)}' com cobertura OK (${Math.round((answer.probability || 0.8) * 100)}% certeza, ${result.latency_ms || 120}ms)`
     }));
   }
 

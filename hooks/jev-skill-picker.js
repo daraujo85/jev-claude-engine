@@ -72,14 +72,15 @@ async function main() {
   const answer = result?.answers?.selected_skill;
   const confidence = answer?.confidence || 0;
   const choiceProb = answer?.probabilities?.[answer?.choice] || confidence;
+  const latency = result.latency_ms || 115;
+  const tokensSaved = skills.length * 350;
 
   if (answer && answer.choice && answer.choice !== 'none' && (confidence >= confThreshold || choiceProb >= confThreshold)) {
     const effectiveProb = Math.max(confidence, choiceProb);
-    const tokensSaved = skills.length * 350;
     const card = renderJevCard({
       feature: 'Skill Picker Router',
       target: answer.choice,
-      latencyMs: result.latency_ms || 115,
+      latencyMs: latency,
       confidence: effectiveProb,
       decision: `Invocando skill: '${answer.choice}'`,
       probabilities: answer.probabilities,
@@ -90,11 +91,18 @@ async function main() {
     // Contrato UserPromptSubmit: systemMessage (TUI) + additionalContext
     // (injetado no prompt do Claude, sem gastar tokens de skill defs).
     process.stdout.write(JSON.stringify({
-      systemMessage: `[JEV] Skill Picker: roteou pra '${answer.choice}' (${Math.round(effectiveProb * 100)}% certeza, ${result.latency_ms || 115}ms) — poupou ~${tokensSaved.toLocaleString()} tokens de contexto`,
+      systemMessage: `[JEV] Skill Picker: roteou pra '${answer.choice}' (${Math.round(effectiveProb * 100)}% certeza, ${latency}ms) — poupou ~${tokensSaved.toLocaleString()} tokens de contexto`,
       hookSpecificOutput: {
         hookEventName: 'UserPromptSubmit',
         additionalContext: `[JEV ROUTER: Invocar skill '${answer.choice}' (${Math.round(effectiveProb * 100)}% certeza). Não carregar outras skills.]`
       }
+    }));
+  } else {
+    // JEV consulted but no confident match — still show visual feedback
+    // that the router evaluated the prompt.
+    const decision = answer?.choice ? `nenhuma skill (${Math.round(choiceProb * 100)}% none)` : 'nenhuma skill';
+    process.stdout.write(JSON.stringify({
+      systemMessage: `[JEV] Skill Picker: avaliou prompt em ${latency}ms → ${decision}. ${skills.length} skills varridas, ~${tokensSaved.toLocaleString()} tokens não-carregados.`
     }));
   }
 

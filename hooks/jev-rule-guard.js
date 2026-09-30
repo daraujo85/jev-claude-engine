@@ -8,6 +8,7 @@
 
 import { JevClient } from '../src/client.js';
 import { extractProjectRules } from '../src/rule-parser.js';
+import path from 'node:path';
 import { QUESTION_TYPES } from '../src/types.js';
 import { renderDiffCard, renderJevCard } from '../src/ui.js';
 import { loadConfig, isEnabled } from '../src/jev-config.js';
@@ -126,6 +127,11 @@ ${fileContent.slice(0, 4000)}
     process.exit(2); // Claude Code block signal
   }
 
+  // JEV evaluated and found nothing blocking — show a subtle confirmation
+  // so the user can see the guard is active.
+  process.stdout.write(JSON.stringify({
+    systemMessage: `[JEV] Rule Guard: edit em '${path.basename(filePath)}' avaliado em ${result.latency_ms || 120}ms — sem violação de regras/contrato/regressão.`
+  }));
   process.exit(0);
 }
 
