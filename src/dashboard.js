@@ -315,8 +315,31 @@ export function createDashboardHtml(initialData, projectDir) {
     }
     .cfg-item .cfg-icon svg { width: 18px; height: 18px; color: var(--accent); }
     .cfg-item .cfg-meta { min-width: 0; flex: 1; }
-    .cfg-item .cfg-name { font-weight: 600; font-size: 12.5px; }
+    .cfg-item .cfg-name { font-weight: 600; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
     .cfg-item .cfg-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .cfg-info {
+      display: inline-grid; place-items: center; width: 15px; height: 15px;
+      border: none; background: transparent; color: var(--muted); cursor: help; padding: 0;
+      position: relative;
+    }
+    .cfg-info svg { width: 14px; height: 14px; }
+    .cfg-info:hover { color: var(--accent); }
+    .cfg-info::after {
+      content: attr(data-tip);
+      position: absolute; z-index: 50;
+      top: calc(100% + 8px); left: 0;
+      width: 300px; max-width: 70vw;
+      padding: 10px 12px;
+      background: #0d0f14; color: var(--fg);
+      border: 1px solid var(--border-strong); border-radius: 8px;
+      font-size: 11px; line-height: 1.5; font-weight: 400; text-align: left;
+      white-space: normal;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      opacity: 0; pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity .15s ease, transform .15s ease;
+    }
+    .cfg-info:hover::after { opacity: 1; transform: translateY(0); }
     .cfg-controls { display: flex; align-items: center; gap: 14px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
     .cfg-field { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); white-space: nowrap; }
     .cfg-field input {
@@ -813,18 +836,58 @@ function projectShort(p) {
 
     // --- Hooks & Skills config UI ---
     const HOOK_META = {
-      'jev-rule-guard': { name: 'Rule Guard', desc: 'block edits that violate project rules or break contracts', fields: [['confidence_threshold', 0.80], ['block_contract_break', true], ['block_logic_weakening', true]] },
-      'jev-skill-picker': { name: 'Skill Picker', desc: 'route prompts to the best skill', fields: [['confidence_threshold', 0.50], ['min_skills', 5]] },
-      'jev-fast-compact': { name: 'Fast Compaction', desc: 'guide context compaction', fields: [['usage_threshold', 25]] },
-      'jev-test-verifier': { name: 'Test Verifier', desc: 'flag control files without test coverage', fields: [['control_file_pattern', 'regex']] }
+      'jev-rule-guard': {
+        name: 'Rule Guard', desc: 'block edits that violate project rules or break contracts',
+        tip: 'Runs before every file write/edit (PreToolUse). JEV checks the proposed change against project rules, public contracts and existing logic. If a violation is detected above the confidence threshold, the edit is blocked (exit code 2) and a reason is shown. Fail-open: if JEV errors, the edit proceeds.',
+        fields: [['confidence_threshold', 0.80], ['block_contract_break', true], ['block_logic_weakening', true]]
+      },
+      'jev-skill-picker': {
+        name: 'Skill Picker', desc: 'route prompts to the best skill',
+        tip: 'Runs on every prompt (UserPromptSubmit). Scans installed skills and asks JEV which single skill best matches the request. On a confident match it injects a routing directive so only that skill is loaded — saving thousands of tokens per prompt instead of loading all skill definitions.',
+        fields: [['confidence_threshold', 0.50], ['min_skills', 5]]
+      },
+      'jev-fast-compact': {
+        name: 'Fast Compaction', desc: 'guide context compaction',
+        tip: 'Runs before context compaction (PreCompact) when the conversation exceeds the usage threshold. JEV decides whether the history holds critical content (decisions, rules, diffs) and returns custom instructions that tell the summarizer what to preserve. Below the threshold it stays silent.',
+        fields: [['usage_threshold', 25]]
+      },
+      'jev-test-verifier': {
+        name: 'Test Verifier', desc: 'flag control files without test coverage',
+        tip: 'Runs after file edits (PostToolUse) on control-domain files (auth, roles, permissions, billing...). JEV checks whether the modified rules have corresponding automated tests. When coverage is missing it warns in the TUI and injects a note so the agent can add tests. Fail-open on error.',
+        fields: [['control_file_pattern', 'regex']]
+      }
     };
     const SKILL_META = {
-      'jev-discover': { name: 'Discover', desc: 'hybrid discovery (graph + search + JEV)', fields: [['top_files', 3]] },
-      'jev-explore': { name: 'Explore', desc: 'score files and pick top relevant', fields: [['batch_size', 20], ['top_files', 3]] },
-      'jev-review': { name: 'Review', desc: '7-question review pre-filter', fields: [['confidence_threshold', 0.50]] },
-      'jev-anti-regression': { name: 'Anti-Regression', desc: 'detect regression risk in diffs', fields: [['confidence_threshold', 0.75]] },
-      'jev-plan-evaluator': { name: 'Plan Evaluator', desc: 'validate bugfix plans', fields: [['min_score', 2.5]] },
-      'jev-browser-test': { name: 'Browser Test', desc: 'autonomous browser UI testing', fields: [['max_steps', 10]] }
+      'jev-discover': {
+        name: 'Discover', desc: 'hybrid discovery (graph + search + JEV)',
+        tip: '4-stage pipeline before reading code: Graphify (knowledge graph) → GrepAI (semantic search) → JEV (scores candidates 1–10 in <200ms) → Claude reads only the top 2–3 files. Use for "where is X implemented?" questions without opening dozens of files.',
+        fields: [['top_files', 3]]
+      },
+      'jev-explore': {
+        name: 'Explore', desc: 'score files and pick top relevant',
+        tip: 'Collects candidate files, scores them in batches of 20 via JEV, and returns only the top N most relevant. Prevents context waste from opening many files when searching for a concept.',
+        fields: [['batch_size', 20], ['top_files', 3]]
+      },
+      'jev-review': {
+        name: 'Review', desc: '7-question review pre-filter',
+        tip: 'Runs the git diff against 7 binary questions: architecture violation, security/auth change, breaking API, DB migration risk, secret exposure, high complexity, missing tests. If all are NO → fast PASS in ~200ms with zero LLM tokens. If any is YES → escalates to deep review with focus points.',
+        fields: [['confidence_threshold', 0.50]]
+      },
+      'jev-anti-regression': {
+        name: 'Anti-Regression', desc: 'detect regression risk in diffs',
+        tip: 'Analyzes the diff for functional regressions: broken public signatures, deleted/weakened business logic, tests weakened to force the pipeline green, hidden side effects on shared state. A second set of deterministic eyes on code that "was already working".',
+        fields: [['confidence_threshold', 0.75]]
+      },
+      'jev-plan-evaluator': {
+        name: 'Plan Evaluator', desc: 'validate bugfix plans',
+        tip: 'Before writing code, JEV evaluates the proposed plan against the reported problem: does it fix the root cause or just mask the symptom? Returns a verdict (optimal / symptom-patch / high-regression-risk / ineffective), root-cause coverage and a technical solidity score.',
+        fields: [['min_score', 2.5]]
+      },
+      'jev-browser-test': {
+        name: 'Browser Test', desc: 'autonomous browser UI testing',
+        tip: 'Drives autonomous browser navigation: extracts visible interactive elements and JEV picks the next click/action in ~200ms via the choice primitive. Includes jev_click_goal (autonomous loop), jev_decide_click (single step) and jev_verify_page (semantic verification). Cuts test cycles from ~40s to ~4s.',
+        fields: [['max_steps', 10]]
+      }
     };
     const FIELD_LABELS = {
       confidence_threshold: 'Min confidence',
@@ -871,7 +934,9 @@ function projectShort(p) {
       const icon = CFG_ICONS[name] || '';
       return '<div class="cfg-item">' +
         '<div class="cfg-icon">' + icon + '</div>' +
-        '<div class="cfg-meta"><div class="cfg-name">' + meta.name + '</div><div class="cfg-desc">' + meta.desc + '</div></div>' +
+        '<div class="cfg-meta"><div class="cfg-name">' + meta.name +
+        '<button class="cfg-info" type="button" aria-label="How this works" data-tip="' + escapeAttr(meta.tip) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1.5 1-1.5 2v.7"/><circle cx="11.5" cy="17" r="0.4" fill="currentColor"/></svg></button>' +
+        '</div><div class="cfg-desc">' + meta.desc + '</div></div>' +
         '<div class="cfg-controls">' + fields +
         '<label class="toggle" title="Enable / disable"><input type="checkbox" data-kind="' + kind + '" data-name="' + name + '" data-field="enabled" ' + (enabled ? 'checked' : '') + '><span class="slider"></span></label>' +
         '</div></div>';
