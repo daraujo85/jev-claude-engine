@@ -326,7 +326,9 @@ Every JEV decision is appended to `.jev/telemetry.jsonl` (project) and mirrored 
 
 View it with `jev gain` or visualize it with `jev dashboard`.
 
-Measured in production use: **~94 ms average decision latency** (vs ~3,200 ms LLM), **1.8M+ context tokens spared**, ~$5 USD saved across 113+ decisions.
+![JEV Telemetry Dashboard](docs/jev-dashboard.png)
+
+Measured in production use: **~749 ms average decision latency** (vs ~3,200 ms LLM), **7.0M+ context tokens spared**, **~$17.22 USD saved** across **383 decisions**.
 
 ---
 
