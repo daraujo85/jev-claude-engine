@@ -489,105 +489,105 @@ export function createDashboardHtml(initialData, projectDir) {
     <div id="view-telemetry">
       <div class="kpis">
         <div class="kpi bar-accent">
-          <div class="label">Tokens saved</div>
+          <div class="label" data-i18n="kpiTokensSaved">Tokens saved</div>
           <div class="value" id="val-tokens">...</div>
-          <div class="sub">context kept out of the LLM</div>
+          <div class="sub" data-i18n="kpiTokensSavedSub">context kept out of the LLM</div>
         </div>
         <div class="kpi bar-good">
-          <div class="label">Estimated savings</div>
+          <div class="label" data-i18n="kpiEstSavings">Estimated savings</div>
           <div class="value" id="val-cost">...</div>
-          <div class="sub">direct billing reduction</div>
+          <div class="sub" data-i18n="kpiEstSavingsSub">direct billing reduction</div>
         </div>
         <div class="kpi bar-cyan">
-          <div class="label">Time saved</div>
+          <div class="label" data-i18n="kpiTimeSaved">Time saved</div>
           <div class="value" id="val-time">...</div>
-          <div class="sub">LLM wait avoided</div>
+          <div class="sub" data-i18n="kpiTimeSavedSub">LLM wait avoided</div>
         </div>
         <div class="kpi bar-amber">
-          <div class="label">Fast decisions</div>
+          <div class="label" data-i18n="kpiFastDecisions">Fast decisions</div>
           <div class="value" id="val-decisions">...</div>
-          <div class="sub">avg latency <span class="cmp" id="val-latency">...</span></div>
+          <div class="sub" data-i18n="kpiFastDecisionsSub">avg latency <span class="cmp" id="val-latency">...</span></div>
         </div>
         <div class="kpi bar-good">
-          <div class="label">JEV spend</div>
+          <div class="label" data-i18n="kpiJevSpend">JEV spend</div>
           <div class="value" id="val-jevcost">...</div>
-          <div class="sub">real cost · TypeSafe</div>
+          <div class="sub" data-i18n="kpiJevSpendSub">real cost · TypeSafe</div>
         </div>
         <div class="kpi bar-cyan">
-          <div class="label">JEV balance</div>
+          <div class="label" data-i18n="kpiJevBalance">JEV balance</div>
           <div class="value" id="val-jevbalance">...</div>
-          <div class="sub">remaining of initial credit</div>
+          <div class="sub" data-i18n="kpiJevBalanceSub">remaining of initial credit</div>
         </div>
       </div>
 
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-head">
-            <div class="chart-title">Latency trend</div>
-            <div class="chart-sub">last 50 decisions · ms</div>
+            <div class="chart-title" data-i18n="chartLatency">Latency trend</div>
+            <div class="chart-sub" data-i18n="chartLatencySub">last 50 decisions · ms</div>
           </div>
           <svg class="chart-svg" id="chart-latency" viewBox="0 0 400 190" preserveAspectRatio="none"></svg>
-          <div class="chart-legend"><span><span class="dot lat"></span>JEV latency</span></div>
+          <div class="chart-legend"><span><span class="dot lat"></span><span data-i18n="legendJevLatency">JEV latency</span></span></div>
         </div>
         <div class="chart-card">
           <div class="chart-head">
-            <div class="chart-title">Tokens by feature</div>
-            <div class="chart-sub">cumulative saved</div>
+            <div class="chart-title" data-i18n="chartTokensFeature">Tokens by feature</div>
+            <div class="chart-sub" data-i18n="chartTokensFeatureSub">cumulative saved</div>
           </div>
           <svg class="chart-svg" id="chart-features" viewBox="0 0 400 190" preserveAspectRatio="none"></svg>
-          <div class="chart-legend"><span><span class="dot tok"></span>tokens saved</span></div>
+          <div class="chart-legend"><span><span class="dot tok"></span><span data-i18n="legendTokensSaved">tokens saved</span></span></div>
         </div>
       </div>
 
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-head">
-            <div class="chart-title">Requests by project</div>
-            <div class="chart-sub">decisions evaluated</div>
+            <div class="chart-title" data-i18n="chartRequestsProject">Requests by project</div>
+            <div class="chart-sub" data-i18n="chartRequestsProjectSub">decisions evaluated</div>
           </div>
           <svg class="chart-svg" id="chart-projects-req" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
-          <div class="chart-legend"><span><span class="dot lat"></span>decisions</span></div>
+          <div class="chart-legend"><span><span class="dot lat"></span><span data-i18n="legendDecisions">decisions</span></span></div>
         </div>
         <div class="chart-card">
           <div class="chart-head">
-            <div class="chart-title">Tokens saved by project</div>
-            <div class="chart-sub">cumulative per project</div>
+            <div class="chart-title" data-i18n="chartTokensProject">Tokens saved by project</div>
+            <div class="chart-sub" data-i18n="chartTokensProjectSub">cumulative per project</div>
           </div>
           <svg class="chart-svg" id="chart-projects-tok" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
-          <div class="chart-legend"><span><span class="dot tok"></span>tokens saved</span></div>
+          <div class="chart-legend"><span><span class="dot tok"></span><span data-i18n="legendTokensSaved">tokens saved</span></span></div>
         </div>
       </div>
 
       <div class="section">
         <div class="section-head">
-          <div class="section-title">Live input stream</div>
-          <div class="section-note">what JEV just evaluated — newest on top</div>
+          <div class="section-title" data-i18n="secLiveStream">Live input stream</div>
+          <div class="section-note" data-i18n="secLiveStreamNote">what JEV just evaluated — newest on top</div>
         </div>
         <div class="stream" id="stream-list"></div>
       </div>
 
       <div class="section">
         <div class="section-head">
-          <div class="section-title">Savings by hook and skill</div>
-          <div class="section-note">tokens saved and latency per feature</div>
+          <div class="section-title" data-i18n="secSavings">Savings by hook and skill</div>
+          <div class="section-note" data-i18n="secSavingsNote">tokens saved and latency per feature</div>
         </div>
         <div class="grid" id="breakdown-container"></div>
       </div>
 
       <div class="section">
         <div class="section-head">
-          <div class="section-title">Latest decisions</div>
+          <div class="section-title" data-i18n="secLatest">Latest decisions</div>
           <div class="section-note">the 20 most recent</div>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Time</th>
-                <th>Feature / Hook</th>
-                <th>JEV latency</th>
-                <th>Tokens saved</th>
-                <th>Status</th>
+                <th data-i18n="tblTime">Time</th>
+                <th data-i18n="tblFeature">Feature / Hook</th>
+                <th data-i18n="tblLatency">JEV latency</th>
+                <th data-i18n="tblTokensSaved">Tokens saved</th>
+                <th data-i18n="tblStatus">Status</th>
               </tr>
             </thead>
             <tbody id="entries-body"></tbody>
