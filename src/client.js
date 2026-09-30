@@ -73,10 +73,19 @@ export class JevClient {
         }
       }
 
+      // Real JEV cost from actual input tokens (JEV = $0.04/M input, $0 output).
+      // Falls back to a fixed estimate when the API omits usage.
+      const inputTokens = data?.usage?.input_tokens || meta.inputTokens || 0;
+      const jevCostUsd = inputTokens > 0
+        ? (inputTokens / 1_000_000) * 0.04
+        : 0.000008;
+
       recordTelemetry({
         feature: meta.feature || 'unknown',
         provider: this.config.provider,
         jev_latency_ms: latency,
+        jev_input_tokens: inputTokens,
+        jev_cost_usd: Number(jevCostUsd.toFixed(8)),
         estimated_llm_tokens_saved: meta.tokensSpared || 15000,
         estimated_llm_latency_ms: meta.llmLatency || 3200,
         status: 'success'

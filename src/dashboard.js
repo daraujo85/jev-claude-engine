@@ -153,6 +153,27 @@ export function createDashboardHtml(initialData, projectDir) {
     .section-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
     .section-note { font-size: 11.5px; color: var(--muted); }
 
+    /* ---- Charts ---- */
+    .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 30px; }
+    @media (max-width: 1100px) { .charts-row { grid-template-columns: 1fr; } }
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .chart-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+    .chart-title { font-weight: 600; font-size: 13px; }
+    .chart-sub { font-size: 11px; color: var(--muted); }
+    .chart-svg { width: 100%; height: 190px; display: block; }
+    .chart-svg .grid-line { stroke: var(--border); stroke-width: 1; }
+    .chart-svg .axis-label { fill: var(--muted); font-size: 9px; }
+    .chart-svg .bar { fill: var(--accent); }
+    .chart-svg .bar:hover { opacity: 0.8; }
+    .chart-legend { display: flex; gap: 14px; font-size: 10.5px; color: var(--muted); margin-top: 10px; }
+    .chart-legend .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .chart-legend .dot.lat { background: var(--accent); }
+    .chart-legend .dot.tok { background: var(--good); }
+
     /* ---- Feature cards ---- */
     .grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px;
@@ -274,6 +295,38 @@ export function createDashboardHtml(initialData, projectDir) {
       </div>
     </div>
 
+    <div class="section" style="margin-top:-10px; margin-bottom:26px;">
+      <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="card">
+          <div class="card-head"><span class="card-title">JEV cost</span><span class="card-count">real</span></div>
+          <div class="card-stats">
+            <div class="stat">Spent<strong id="val-jevcost">...</strong></div>
+            <div class="stat">Input<strong id="val-jevtokens">...</strong></div>
+            <div class="stat">Saved vs<strong id="val-jevsaved">...</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-title">Latency trend</div>
+          <div class="chart-sub">last 50 decisions · ms</div>
+        </div>
+        <svg class="chart-svg" id="chart-latency" viewBox="0 0 400 190" preserveAspectRatio="none"></svg>
+        <div class="chart-legend"><span><span class="dot lat"></span>JEV latency</span></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-title">Tokens by feature</div>
+          <div class="chart-sub">cumulative saved</div>
+        </div>
+        <svg class="chart-svg" id="chart-features" viewBox="0 0 400 190" preserveAspectRatio="none"></svg>
+        <div class="chart-legend"><span><span class="dot tok"></span>tokens saved</span></div>
+      </div>
+    </div>
+
     <div class="section">
       <div class="section-head">
         <div class="section-title">Savings by hook and skill</div>
@@ -329,6 +382,9 @@ export function createDashboardHtml(initialData, projectDir) {
 
       document.getElementById('val-decisions').innerText = (data.total_decisions || 0).toLocaleString('pt-BR');
       document.getElementById('val-latency').innerText = (data.avg_jev_latency_ms || 0) + ' ms';
+      document.getElementById('val-jevcost').innerText = '$' + (data.total_jev_cost_usd || 0).toFixed(4);
+      document.getElementById('val-jevtokens').innerText = (data.total_jev_input_tokens || 0).toLocaleString('pt-BR');
+      document.getElementById('val-jevsaved').innerText = '$' + (data.total_cost_saved_usd || 0).toFixed(2);
 
       const bd = document.getElementById('breakdown-container');
       bd.innerHTML = '';

@@ -23,6 +23,7 @@ export function recordTelemetry(entry, projectDir = process.cwd()) {
       feature: entry.feature || 'general',
       provider: entry.provider || 'unknown',
       jev_latency_ms: entry.jev_latency_ms || 120,
+      jev_input_tokens: entry.jev_input_tokens || 0,
       jev_cost_usd: entry.jev_cost_usd || 0.000008,
       estimated_llm_latency_ms: entry.estimated_llm_latency_ms || 3000,
       estimated_llm_tokens_saved: entry.estimated_llm_tokens_saved || 15000,
@@ -96,6 +97,8 @@ export function readTelemetrySummary(projectDir = process.cwd()) {
   let totalTimeSavedMs = 0;
   let totalTokensSaved = 0;
   let totalCostSaved = 0;
+  let totalJevCost = 0;
+  let totalJevInputTokens = 0;
   const byFeature = {};
 
   for (const row of entries) {
@@ -104,11 +107,15 @@ export function readTelemetrySummary(projectDir = process.cwd()) {
     const tokens = row.estimated_llm_tokens_saved || 0;
     const cost = row.estimated_llm_cost_saved_usd || 0;
     const feat = row.feature || 'other';
+    const jevCost = row.jev_cost_usd || 0.000008;
+    const jevInput = row.jev_input_tokens || 0;
 
     totalLatency += lat;
     totalTimeSavedMs += timeSaved;
     totalTokensSaved += tokens;
     totalCostSaved += cost;
+    totalJevCost += jevCost;
+    totalJevInputTokens += jevInput;
 
     if (!byFeature[feat]) {
       byFeature[feat] = {
@@ -146,6 +153,8 @@ export function readTelemetrySummary(projectDir = process.cwd()) {
     total_time_saved_sec: Math.round(totalTimeSavedMs / 1000),
     total_tokens_saved: totalTokensSaved,
     total_cost_saved_usd: Number(totalCostSaved.toFixed(4)),
+    total_jev_cost_usd: Number(totalJevCost.toFixed(6)),
+    total_jev_input_tokens: totalJevInputTokens,
     by_feature: byFeatureSummary,
     recent_entries: entries.slice(0, 100)
   };
