@@ -355,16 +355,6 @@ View it with `jev gain` or visualize it with `jev dashboard`.
 
 <img src="docs/jev-dashboard-all.gif" width="100%" alt="JEV Dashboard — all views">
 
-### Charts
-
-Latency trend (last 50 decisions) and tokens saved by feature:
-
-![Latency trend](docs/chart-latency.png) ![Tokens by feature](docs/chart-features.png)
-
-Requests and tokens saved by project:
-
-![Requests by project](docs/chart-requests-project.png) ![Tokens saved by project](docs/chart-tokens-project.png)
-
 Measured in production use: **~716 ms average decision latency** (vs ~3,200 ms LLM), **13.6M+ context tokens spared**, **~$30.32 USD saved** across **674 decisions**.
 
 ---
