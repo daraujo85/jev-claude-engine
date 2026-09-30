@@ -233,7 +233,7 @@ export function createDashboardHtml(initialData, projectDir) {
 
     function render(data) {
       document.getElementById('val-tokens').innerText = (data.total_tokens_saved || 0).toLocaleString('pt-BR');
-      document.getElementById('val-cost').innerText = '$' + (data.total_cost_saved_usd || 0).toFixed(4) + ' USD';
+      document.getElementById('val-cost').innerText = '$' + (data.total_cost_saved_usd || 0).toFixed(2) + ' USD';
       
       const sec = data.total_time_saved_sec || 0;
       if (sec >= 60) {
