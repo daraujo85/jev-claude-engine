@@ -303,17 +303,10 @@ export function createDashboardHtml(initialData, projectDir) {
     footer .sep { opacity: 0.4; }
 
     /* ---- Config (Hooks & Skills) ---- */
-    .config-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-    @media (max-width: 1100px) { .config-row { grid-template-columns: 1fr; } }
-    .config-group .group-label {
-      font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;
-      margin: 22px 0 10px; font-weight: 600;
-    }
-    .config-group:first-child .group-label { margin-top: 0; }
     .cfg-item {
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
       padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      margin-bottom: 10px;
+      margin-bottom: 10px; max-width: 720px;
     }
     .cfg-item .cfg-meta { min-width: 0; }
     .cfg-item .cfg-name { font-weight: 600; font-size: 12.5px; }
@@ -357,20 +350,20 @@ export function createDashboardHtml(initialData, projectDir) {
     </div>
     <nav class="nav">
       <span class="nav-label">Overview</span>
-      <a href="#" class="nav-item active">
+      <a href="#" class="nav-item active" data-view="telemetry" onclick="showView('telemetry')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         Telemetry
       </a>
-      <a href="#" class="nav-item">
+      <a href="#" class="nav-item" data-view="config" onclick="showView('config')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10m6 10V4m6 16v-7m6 7H2"/></svg>
         Hooks &amp; Skills
       </a>
-      <a href="#" class="nav-item">
+      <a href="#" class="nav-item" onclick="showView('telemetry')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>
         Guardrails
       </a>
       <span class="nav-label">System</span>
-      <a href="#" class="nav-item">
+      <a href="#" class="nav-item" onclick="showView('telemetry')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m10 10l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
         Settings
       </a>
@@ -384,129 +377,141 @@ export function createDashboardHtml(initialData, projectDir) {
   <main>
     <div class="topbar">
       <div>
-        <h1>System telemetry</h1>
-        <div class="crumb">JEV System One · real-time decisions</div>
+        <h1 id="page-title">System telemetry</h1>
+        <div class="crumb" id="page-crumb">JEV System One · real-time decisions</div>
       </div>
       <div class="right">
         <span class="badge">On-demand</span>
-        <button class="btn" onclick="fetchData()">Refresh</button>
+        <button class="btn" id="refresh-btn" onclick="fetchData()">Refresh</button>
       </div>
     </div>
 
-    <div class="section" id="config-section">
-      <div class="section-head">
-        <div class="section-title">Hooks &amp; Skills</div>
-        <div class="section-note">toggle on/off and tune thresholds · saved to ~/.jev/config.json</div>
-      </div>
-      <div class="config-row" id="config-hooks"></div>
-      <div class="config-row" id="config-skills"></div>
-      <div class="config-actions">
-        <button class="btn btn-primary" onclick="saveConfig()">Save</button>
-        <button class="btn" onclick="resetConfig()">Reset to defaults</button>
-        <span class="save-msg" id="save-msg"></span>
-      </div>
-    </div>
-
-    <div class="kpis">
-      <div class="kpi bar-accent">
-        <div class="label">Tokens saved</div>
-        <div class="value" id="val-tokens">...</div>
-        <div class="sub">context kept out of the LLM</div>
-      </div>
-      <div class="kpi bar-good">
-        <div class="label">Estimated savings</div>
-        <div class="value" id="val-cost">...</div>
-        <div class="sub">direct billing reduction</div>
-      </div>
-      <div class="kpi bar-cyan">
-        <div class="label">Time saved</div>
-        <div class="value" id="val-time">...</div>
-        <div class="sub">LLM wait avoided</div>
-      </div>
-      <div class="kpi bar-amber">
-        <div class="label">Fast decisions</div>
-        <div class="value" id="val-decisions">...</div>
-        <div class="sub">avg latency <span class="cmp" id="val-latency">...</span></div>
-      </div>
-      <div class="kpi bar-good">
-        <div class="label">JEV spend</div>
-        <div class="value" id="val-jevcost">...</div>
-        <div class="sub">real cost · TypeSafe</div>
-      </div>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-card">
-        <div class="chart-head">
-          <div class="chart-title">Latency trend</div>
-          <div class="chart-sub">last 50 decisions · ms</div>
+    <!-- VIEW: Telemetry -->
+    <div id="view-telemetry">
+      <div class="kpis">
+        <div class="kpi bar-accent">
+          <div class="label">Tokens saved</div>
+          <div class="value" id="val-tokens">...</div>
+          <div class="sub">context kept out of the LLM</div>
         </div>
-        <svg class="chart-svg" id="chart-latency" viewBox="0 0 400 190" preserveAspectRatio="none"></svg>
-        <div class="chart-legend"><span><span class="dot lat"></span>JEV latency</span></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-head">
-          <div class="chart-title">Tokens by feature</div>
-          <div class="chart-sub">cumulative saved</div>
+        <div class="kpi bar-good">
+          <div class="label">Estimated savings</div>
+          <div class="value" id="val-cost">...</div>
+          <div class="sub">direct billing reduction</div>
         </div>
-        <svg class="chart-svg" id="chart-features" viewBox="0 0 400 190" preserveAspectRatio="none"></svg>
-        <div class="chart-legend"><span><span class="dot tok"></span>tokens saved</span></div>
-      </div>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-card">
-        <div class="chart-head">
-          <div class="chart-title">Requests by project</div>
-          <div class="chart-sub">decisions evaluated</div>
+        <div class="kpi bar-cyan">
+          <div class="label">Time saved</div>
+          <div class="value" id="val-time">...</div>
+          <div class="sub">LLM wait avoided</div>
         </div>
-        <svg class="chart-svg" id="chart-projects-req" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
-        <div class="chart-legend"><span><span class="dot lat"></span>decisions</span></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-head">
-          <div class="chart-title">Tokens saved by project</div>
-          <div class="chart-sub">cumulative per project</div>
+        <div class="kpi bar-amber">
+          <div class="label">Fast decisions</div>
+          <div class="value" id="val-decisions">...</div>
+          <div class="sub">avg latency <span class="cmp" id="val-latency">...</span></div>
         </div>
-        <svg class="chart-svg" id="chart-projects-tok" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
-        <div class="chart-legend"><span><span class="dot tok"></span>tokens saved</span></div>
+        <div class="kpi bar-good">
+          <div class="label">JEV spend</div>
+          <div class="value" id="val-jevcost">...</div>
+          <div class="sub">real cost · TypeSafe</div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-head">
+            <div class="chart-title">Latency trend</div>
+            <div class="chart-sub">last 50 decisions · ms</div>
+          </div>
+          <svg class="chart-svg" id="chart-latency" viewBox="0 0 400 190" preserveAspectRatio="none"></svg>
+          <div class="chart-legend"><span><span class="dot lat"></span>JEV latency</span></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-head">
+            <div class="chart-title">Tokens by feature</div>
+            <div class="chart-sub">cumulative saved</div>
+          </div>
+          <svg class="chart-svg" id="chart-features" viewBox="0 0 400 190" preserveAspectRatio="none"></svg>
+          <div class="chart-legend"><span><span class="dot tok"></span>tokens saved</span></div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-head">
+            <div class="chart-title">Requests by project</div>
+            <div class="chart-sub">decisions evaluated</div>
+          </div>
+          <svg class="chart-svg" id="chart-projects-req" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
+          <div class="chart-legend"><span><span class="dot lat"></span>decisions</span></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-head">
+            <div class="chart-title">Tokens saved by project</div>
+            <div class="chart-sub">cumulative per project</div>
+          </div>
+          <svg class="chart-svg" id="chart-projects-tok" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
+          <div class="chart-legend"><span><span class="dot tok"></span>tokens saved</span></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Live input stream</div>
+          <div class="section-note">what JEV just evaluated — newest on top</div>
+        </div>
+        <div class="stream" id="stream-list"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Savings by hook and skill</div>
+          <div class="section-note">tokens saved and latency per feature</div>
+        </div>
+        <div class="grid" id="breakdown-container"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Latest decisions</div>
+          <div class="section-note">the 20 most recent</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Feature / Hook</th>
+                <th>JEV latency</th>
+                <th>Tokens saved</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="entries-body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-head">
-        <div class="section-title">Live input stream</div>
-        <div class="section-note">what JEV just evaluated — newest on top</div>
-      </div>
-      <div class="stream" id="stream-list"></div>
-    </div>
+    <!-- VIEW: Hooks & Skills (config) -->
+    <div id="view-config" style="display:none;">
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Hooks</div>
+          <div class="section-note">toggle on/off and tune thresholds · saved to ~/.jev/config.json</div>
+        </div>
+        <div id="config-hooks"></div>
 
-    <div class="section">
-      <div class="section-head">
-        <div class="section-title">Savings by hook and skill</div>
-        <div class="section-note">tokens saved and latency per feature</div>
-      </div>
-      <div class="grid" id="breakdown-container"></div>
-    </div>
+        <div class="section-head" style="margin-top:22px;">
+          <div class="section-title">Skills</div>
+          <div class="section-note">on/off and parameters</div>
+        </div>
+        <div id="config-skills"></div>
 
-    <div class="section">
-      <div class="section-head">
-        <div class="section-title">Latest decisions</div>
-        <div class="section-note">the 20 most recent</div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Feature / Hook</th>
-              <th>JEV latency</th>
-              <th>Tokens saved</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="entries-body"></tbody>
-        </table>
+        <div class="config-actions">
+          <button class="btn btn-primary" onclick="saveConfig()">Save</button>
+          <button class="btn" onclick="resetConfig()">Reset to defaults</button>
+          <span class="save-msg" id="save-msg"></span>
+        </div>
       </div>
     </div>
 
@@ -838,10 +843,8 @@ function projectShort(p) {
     function renderConfig() {
       const hooks = document.getElementById('config-hooks');
       const skills = document.getElementById('config-skills');
-      hooks.innerHTML = '<div class="config-group"><div class="group-label">Hooks</div>' +
-        Object.entries(HOOK_META).map(([n, m]) => cfgItemHTML('hooks', n, m, jevConfig.hooks?.[n]?.enabled !== false)).join('') + '</div>';
-      skills.innerHTML = '<div class="config-group"><div class="group-label">Skills</div>' +
-        Object.entries(SKILL_META).map(([n, m]) => cfgItemHTML('skills', n, m, jevConfig.skills?.[n]?.enabled !== false)).join('') + '</div>';
+      hooks.innerHTML = Object.entries(HOOK_META).map(([n, m]) => cfgItemHTML('hooks', n, m, jevConfig.hooks?.[n]?.enabled !== false)).join('');
+      skills.innerHTML = Object.entries(SKILL_META).map(([n, m]) => cfgItemHTML('skills', n, m, jevConfig.skills?.[n]?.enabled !== false)).join('');
     }
 
     async function initConfig() {
@@ -850,6 +853,23 @@ function projectShort(p) {
         jevConfig = await res.json();
         renderConfig();
       } catch (e) { console.error('config load failed', e); }
+    }
+
+    // Simple SPA view switching via sidebar
+    const VIEWS = {
+      telemetry: { title: 'System telemetry', crumb: 'JEV System One · real-time decisions', refresh: true },
+      config: { title: 'Hooks & Skills', crumb: 'toggle and tune JEV hooks · saved to ~/.jev/config.json', refresh: false }
+    };
+    function showView(name) {
+      const showTelemetry = name === 'telemetry';
+      document.getElementById('view-telemetry').style.display = showTelemetry ? '' : 'none';
+      document.getElementById('view-config').style.display = showTelemetry ? 'none' : '';
+      document.getElementById('page-title').innerText = VIEWS[name].title;
+      document.getElementById('page-crumb').innerText = VIEWS[name].crumb;
+      document.getElementById('refresh-btn').style.display = VIEWS[name].refresh ? '' : 'none';
+      document.querySelectorAll('.nav-item').forEach(a => {
+        a.classList.toggle('active', a.dataset.view === name);
+      });
     }
 
     function collectConfig() {
