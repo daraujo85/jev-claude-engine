@@ -391,8 +391,15 @@ export function createDashboardHtml(initialData, projectDir) {
       .kpis { grid-template-columns: repeat(2, 1fr); gap: 10px; }
       .charts-row { grid-template-columns: 1fr; }
       .section-title { font-size: 13.5px; }
-      .cfg-item { flex-wrap: wrap; padding: 12px 14px; }
-      .cfg-controls { justify-content: flex-start; gap: 10px; }
+      .cfg-item { flex-wrap: wrap; padding: 12px 14px; align-items: flex-start; position: relative; }
+      .cfg-item .cfg-icon { width: 30px; height: 30px; }
+      .cfg-item .cfg-icon svg { width: 16px; height: 16px; }
+      .cfg-meta { flex-basis: calc(100% - 48px); padding-right: 44px; }
+      .cfg-controls {
+        flex-basis: 100%; justify-content: flex-start; gap: 8px 14px;
+        padding-top: 10px; border-top: 1px solid var(--border); margin-top: 2px;
+      }
+      .cfg-controls .toggle { position: absolute; right: 14px; top: 14px; }
       .cfg-info::after { width: 220px; left: auto; right: 0; }
       .stream { max-height: 260px; }
       .stream-item { padding: 8px 12px; font-size: 11px; flex-wrap: wrap; gap: 6px; }
