@@ -508,11 +508,6 @@ export function createDashboardHtml(initialData, projectDir) {
           <div class="value" id="val-decisions">...</div>
           <div class="sub"><span data-i18n="kpiFastDecisionsSub">avg latency</span> <span class="cmp" id="val-latency">...</span></div>
         </div>
-        <div class="kpi bar-amber">
-          <div class="label" data-i18n="kpiRequests">Requests</div>
-          <div class="value" id="val-requests">...</div>
-          <div class="sub" data-i18n="kpiRequestsSub">total evaluated</div>
-        </div>
         <div class="kpi bar-good">
           <div class="label" data-i18n="kpiJevSpend">JEV spend</div>
           <div class="value" id="val-jevcost">...</div>
@@ -843,8 +838,6 @@ export function createDashboardHtml(initialData, projectDir) {
 
       document.getElementById('val-decisions').innerText = (data.total_decisions || 0).toLocaleString('pt-BR');
       document.getElementById('val-latency').innerText = (data.avg_jev_latency_ms || 0) + ' ms';
-      const reqEl = document.getElementById('val-requests');
-      if (reqEl) reqEl.innerText = (data.total_decisions || 0).toLocaleString('pt-BR');
       const jiEl = document.getElementById('val-jevinput');
       if (jiEl) jiEl.innerText = (data.total_jev_input_tokens || 0).toLocaleString('pt-BR');
       document.getElementById('val-jevcost').innerText = '$' + (data.total_jev_cost_usd || 0).toFixed(4);
