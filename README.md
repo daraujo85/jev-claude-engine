@@ -151,6 +151,8 @@ The dashboard and the CLI speak your language. Five languages are built in:
 | 🇪🇸 | Español | `es` |
 | 🇫🇷 | Français | `fr` |
 | 🇩🇪 | Deutsch | `de` |
+| 🇨🇳 | 中文 | `zh` |
+| 🇮🇹 | Italiano | `it` |
 
 **Dashboard:** pick a language from the flag dropdown in the header. Every
 element follows it live — sidebar, navigation, view titles/crumbs, action

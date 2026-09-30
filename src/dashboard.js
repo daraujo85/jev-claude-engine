@@ -478,6 +478,8 @@ export function createDashboardHtml(initialData, projectDir) {
           <option value="es">🇪🇸 Español</option>
           <option value="fr">🇫🇷 Français</option>
           <option value="de">🇩🇪 Deutsch</option>
+          <option value="zh">🇨🇳 中文</option>
+          <option value="it">🇮🇹 Italiano</option>
         </select>
         <button class="btn" id="refresh-btn" onclick="fetchData()" data-i18n="refresh">Refresh</button>
       </div>
