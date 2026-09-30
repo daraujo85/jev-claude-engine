@@ -140,6 +140,11 @@ builds the combos and lists them with their failover chain:
 
 ![JEV 9Router view](docs/jev-router.png)
 
+The dashboard and CLI are **i18n**: pick a language (🇺🇸 English default,
+🇧🇷 Português, 🇪🇸 Español, 🇫🇷 Français, 🇩🇪 Deutsch) from the header dropdown.
+The choice persists in `~/.jev/config.json` (`ui.lang`) and both the
+dashboard UI and the CLI output follow it.
+
 **Task → subagent routing (inside Claude Code, no tmux).** When you type a
 free-text prompt, the `jev-task-router` hook classifies it (System One,
 zero generative LLM) and injects a delegation directive. If the task matches

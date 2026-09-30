@@ -8,6 +8,9 @@ import os from 'node:os';
 import path from 'node:path';
 
 export const DEFAULT_CONFIG = {
+  ui: {
+    lang: 'en'
+  },
   jev: {
     api_key: ''
   },

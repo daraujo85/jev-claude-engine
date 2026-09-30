@@ -6,6 +6,7 @@ import path from 'node:path';
 import { readTelemetrySummary } from './telemetry.js';
 import { loadConfig, saveConfig, resetConfig, DEFAULT_CONFIG } from './jev-config.js';
 import { listModels, profileModels, suggestCombos, routerFeatures } from './model-router.js';
+import { STRINGS, DEFAULT_LANG, currentLang } from './i18n.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // AI-generated logo (Gemini, see docs/jev-logo.png) served as /logo.png.
@@ -16,8 +17,9 @@ try {
 } catch { logoBuffer = null; }
 
 export function createDashboardHtml(initialData, projectDir) {
+  const uiLang = currentLang(loadConfig());
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${uiLang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -431,32 +433,32 @@ export function createDashboardHtml(initialData, projectDir) {
       </div>
     </div>
     <nav class="nav">
-      <span class="nav-label">Overview</span>
+      <span class="nav-label" data-i18n="navOverview">Overview</span>
       <a href="#" class="nav-item active" data-view="telemetry" onclick="showView('telemetry')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-        Telemetry
+        <span data-i18n="navTelemetry">Telemetry</span>
       </a>
       <a href="#" class="nav-item" data-view="config" onclick="showView('config')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10m6 10V4m6 16v-7m6 7H2"/></svg>
-        Hooks &amp; Skills
+        <span data-i18n="navConfig">Hooks &amp; Skills</span>
       </a>
       <a href="#" class="nav-item" data-view="guardrails" onclick="showView('guardrails')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>
-        Guardrails
+        <span data-i18n="navGuardrails">Guardrails</span>
       </a>
       <a href="#" class="nav-item" data-view="router" onclick="showView('router')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 8h18M7 15h3"/><circle cx="17" cy="15" r="1.6"/></svg>
-        9Router
+        <span data-i18n="navRouter">9Router</span>
       </a>
-      <span class="nav-label">System</span>
+      <span class="nav-label" data-i18n="navSystem">System</span>
       <a href="#" class="nav-item" data-view="settings" onclick="showView('settings')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m10 10l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
-        Settings
+        <span data-i18n="navSettings">Settings</span>
       </a>
     </nav>
     <div class="sidebar-foot">
-      Sub-300ms decision engine.<br>
-      Fail-open on any failure.
+      <span data-i18n="foot1">Sub-300ms decision engine.</span><br>
+      <span data-i18n="foot2">Fail-open on any failure.</span>
     </div>
   </aside>
 
@@ -467,8 +469,15 @@ export function createDashboardHtml(initialData, projectDir) {
         <div class="crumb" id="page-crumb">JEV System One · real-time decisions</div>
       </div>
       <div class="right">
-        <span class="badge">On-demand</span>
-        <button class="btn" id="refresh-btn" onclick="fetchData()">Refresh</button>
+        <span class="badge" data-i18n="onDemand">On-demand</span>
+        <select id="lang-select" class="btn" style="margin-right:8px;cursor:pointer;" data-i18n-tooltip="langSelect" title="Language" onchange="setLang(this.value)">
+          <option value="en">🇺🇸 English</option>
+          <option value="pt-BR">🇧🇷 Português</option>
+          <option value="es">🇪🇸 Español</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="de">🇩🇪 Deutsch</option>
+        </select>
+        <button class="btn" id="refresh-btn" onclick="fetchData()" data-i18n="refresh">Refresh</button>
       </div>
     </div>
 
@@ -599,7 +608,7 @@ export function createDashboardHtml(initialData, projectDir) {
         <div id="config-skills"></div>
 
         <div class="config-actions">
-          <button class="btn btn-primary" onclick="saveConfig()">Save</button>
+          <button class="btn btn-primary" onclick="saveConfig()" data-i18n="save">Save</button>
           <button class="btn" onclick="resetConfig()">Reset to defaults</button>
           <span class="save-msg" id="save-msg"></span>
         </div>
@@ -658,7 +667,7 @@ export function createDashboardHtml(initialData, projectDir) {
         </div>
 
         <div class="config-actions">
-          <button class="btn btn-primary" onclick="saveConfig()">Save</button>
+          <button class="btn btn-primary" onclick="saveConfig()" data-i18n="save">Save</button>
           <button class="btn" onclick="resetConfig()">Reset to defaults</button>
           <span class="save-msg" id="save-msg"></span>
         </div>
@@ -676,7 +685,7 @@ export function createDashboardHtml(initialData, projectDir) {
         <div id="guardrails-skills"></div>
 
         <div class="config-actions">
-          <button class="btn btn-primary" onclick="saveConfig()">Save</button>
+          <button class="btn btn-primary" onclick="saveConfig()" data-i18n="save">Save</button>
           <button class="btn" onclick="resetConfig()">Reset to defaults</button>
           <span class="save-msg" id="save-msg"></span>
         </div>
@@ -724,14 +733,14 @@ export function createDashboardHtml(initialData, projectDir) {
           <div class="section-note">classify every model and build combos with failover</div>
         </div>
         <div class="config-actions">
-          <button class="btn btn-primary" onclick="runProfiler()">Run profiler</button>
+          <button class="btn btn-primary" onclick="runProfiler()" data-i18n="runProfiler">Run profiler</button>
           <span class="save-msg" id="profiler-msg"></span>
         </div>
         <div id="router-combos" style="margin-top:14px;"></div>
 
         <div class="config-actions">
-          <button class="btn btn-primary" onclick="saveConfig()">Save</button>
-          <button class="btn" onclick="testRouter()">Test connection</button>
+          <button class="btn btn-primary" onclick="saveConfig()" data-i18n="save">Save</button>
+          <button class="btn" onclick="testRouter()" data-i18n="testConnection">Test connection</button>
           <span class="save-msg" id="router-msg"></span>
         </div>
       </div>
@@ -750,6 +759,38 @@ export function createDashboardHtml(initialData, projectDir) {
   </main>
 
   <script>
+    const JEV_I18N = ${JSON.stringify(STRINGS)};
+    let JEV_LANG = ${JSON.stringify(uiLang)};
+    function i18nStr(key) { return (JEV_I18N[JEV_LANG] && JEV_I18N[JEV_LANG][key]) || JEV_I18N.en[key] || key; }
+    function applyLang() {
+      document.documentElement.lang = JEV_LANG;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.innerText = i18nStr(el.dataset.i18n);
+      });
+      document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        el.title = i18nStr(el.dataset.i18nTitle);
+      });
+      document.querySelectorAll('[data-i18n-tooltip]').forEach(el => {
+        el.setAttribute('title', i18nStr(el.dataset.i18nTooltip));
+      });
+      const sel = document.getElementById('lang-select');
+      if (sel) sel.value = JEV_LANG;
+      // re-render the current view (titles/crumbs + dynamic text)
+      const cur = new URLSearchParams(window.location.search).get('view') || 'telemetry';
+      showView(cur);
+    }
+    async function setLang(lang) {
+      if (!JEV_I18N[lang]) return;
+      JEV_LANG = lang;
+      try {
+        await fetch('/api/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ui: { lang } })
+        });
+      } catch (e) { /* fail-open */ }
+      applyLang();
+    }
     let currentData = ${JSON.stringify(initialData)};
 
     function render(data) {
@@ -1214,24 +1255,17 @@ function projectShort(p) {
       const rf = document.getElementById('router-features');
       if (rf) {
         const features = [
-          ['model_profiler', 'Model profiler', 'classify every model by its best task'],
-          ['combo_suggester', 'Combo suggester', 'build optimized combos with failover chains'],
-          ['task_router', 'Task router', 'route each task to the best model/combo'],
-          ['subagent_router', 'Subagent router', 'delegate each task to a JEV subagent that runs on the right combo'],
-          ['project_profile', 'Project profile', 'scan the repo and read .claude/jev-profile.md so new code follows the architecture and design system']
+          ['model_profiler', 'featProfiler', 'featProfilerDesc', 'tipProfiler'],
+          ['combo_suggester', 'featCombos', 'featCombosDesc', 'tipCombos'],
+          ['task_router', 'featTaskRouter', 'featTaskRouterDesc', 'tipTaskRouter'],
+          ['subagent_router', 'featSubagent', 'featSubagentDesc', 'tipSubagent'],
+          ['project_profile', 'featProfile', 'featProfileDesc', 'tipProfile']
         ];
-        rf.innerHTML = features.map(([f, name, desc]) => {
+        rf.innerHTML = features.map(([f, nameKey, descKey, tipKey]) => {
           const on = jevConfig?.router?.[f] !== false;
-          const tips = {
-            model_profiler: 'Runs JEV System One over the live 9Router catalog and scores each model by its best task (writing_code, planning, tests...).',
-            combo_suggester: 'Groups profiled models by task and builds combos (primary + failover chain) with names Claude Code accepts (claude-writing-code, ...).',
-            task_router: 'Classifies a free-text prompt into a JEV task type and maps it to the best combo. Zero generative LLM cost — System One choice/score only.',
-            subagent_router: 'Injects a delegation directive on every prompt: when the task matches a JEV subagent (jev-writing-code, jev-docs...), Claude Code runs it on that subagent\u2019s combo. Subagents live in ~/.claude/agents/.',
-            project_profile: 'Generates .claude/jev-profile.md (stack, layers, patterns, tests, code style, design tokens). JEV subagents read it before coding so new work matches the project architecture and never invents colors/spacing/icons.'
-          };
-          return '<div class="cfg-item" title="' + (tips[f] || desc) + '">' +
-            '<div class="cfg-meta"><div class="cfg-name">' + name + '</div><div class="cfg-desc">' + desc + '</div></div>' +
-            '<div class="cfg-controls"><label class="toggle" title="' + (tips[f] || desc) + '"><input type="checkbox" data-router="' + f + '" ' + (on ? 'checked' : '') + '><span class="slider"></span></label></div>' +
+          return '<div class="cfg-item" data-i18n-tooltip="' + tipKey + '" title="' + i18nStr(tipKey) + '">' +
+            '<div class="cfg-meta"><div class="cfg-name">' + i18nStr(nameKey) + '</div><div class="cfg-desc">' + i18nStr(descKey) + '</div></div>' +
+            '<div class="cfg-controls"><label class="toggle" title="' + i18nStr(tipKey) + '"><input type="checkbox" data-router="' + f + '" ' + (on ? 'checked' : '') + '><span class="slider"></span></label></div>' +
             '</div>';
         }).join('');
       }
@@ -1273,11 +1307,11 @@ function projectShort(p) {
 
     // SPA view switching via sidebar, synced to ?view=<name> query param
     const VIEWS = {
-      telemetry: { title: 'System telemetry', crumb: 'JEV System One · real-time decisions', refresh: true },
-      config: { title: 'Hooks & Skills', crumb: 'toggle and tune JEV hooks · saved to ~/.jev/config.json', refresh: false },
-      guardrails: { title: 'Guardrails', crumb: 'what JEV blocks vs. warns · saved to ~/.jev/config.json', refresh: false },
-      router: { title: '9Router', crumb: 'model routing, profiling and combos · saved to ~/.jev/config.json', refresh: false },
-      settings: { title: 'Settings', crumb: 'pricing and balance · saved to ~/.jev/config.json', refresh: false }
+      telemetry: { titleKey: 'titleTelemetry', crumbKey: 'crumbTelemetry', refresh: true },
+      config: { titleKey: 'titleConfig', crumbKey: 'crumbConfig', refresh: false },
+      guardrails: { titleKey: 'titleGuardrails', crumbKey: 'crumbGuardrails', refresh: false },
+      router: { titleKey: 'titleRouter', crumbKey: 'crumbRouter', refresh: false },
+      settings: { titleKey: 'titleSettings', crumbKey: 'crumbSettings', refresh: false }
     };
     function viewFromQuery() {
       const p = new URLSearchParams(window.location.search).get('view');
@@ -1288,8 +1322,8 @@ function projectShort(p) {
       ['telemetry', 'config', 'guardrails', 'router', 'settings'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
       });
-      document.getElementById('page-title').innerText = VIEWS[name].title;
-      document.getElementById('page-crumb').innerText = VIEWS[name].crumb;
+      document.getElementById('page-title').innerText = i18nStr(VIEWS[name].titleKey);
+      document.getElementById('page-crumb').innerText = i18nStr(VIEWS[name].crumbKey);
       document.getElementById('refresh-btn').style.display = VIEWS[name].refresh ? '' : 'none';
       document.querySelectorAll('.nav-item').forEach(a => {
         a.classList.toggle('active', a.dataset.view === name);
@@ -1537,6 +1571,7 @@ function projectShort(p) {
     render(currentData);
     setInterval(fetchData, 4000);
     initConfig();
+    applyLang();
     showView(viewFromQuery());
   </script>
 </body>

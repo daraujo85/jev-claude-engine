@@ -12,8 +12,12 @@ import { readTelemetrySummary } from '../src/telemetry.js';
 import { startDashboardServer } from '../src/dashboard.js';
 import { JevClient } from '../src/client.js';
 import { QUESTION_TYPES } from '../src/types.js';
+import { loadConfig } from '../src/jev-config.js';
+import { currentLang, t } from '../src/i18n.js';
 
 const VERSION = '1.0.0';
+const LANG = currentLang(loadConfig());
+const L = (k) => t(k, LANG);
 
 const CYAN = '\x1b[36m';
 const GREEN = '\x1b[32m';
@@ -24,7 +28,7 @@ const DIM = '\x1b[2m';
 
 function printHeader() {
   console.log(`\n${CYAN}================================================================${RESET}`);
-  console.log(`${BOLD}   ⚡ JEV Decision Engine (TypeSafe AI) — Token & Speed Analytics${RESET}`);
+  console.log(`${BOLD}   ⚡ ${L('cliHeader')}${RESET}`);
   console.log(`${CYAN}================================================================${RESET}\n`);
 }
 
@@ -32,21 +36,21 @@ async function showGain(showHistory = false) {
   printHeader();
   const summary = readTelemetrySummary();
 
-  console.log(`  ${BOLD}Total de Decisões Tomadas:${RESET}       ${GREEN}${summary.total_decisions}${RESET}`);
-  console.log(`  ${BOLD}Latência Média do JEV:${RESET}           ${GREEN}${summary.avg_jev_latency_ms} ms${RESET} ${DIM}(vs ~3.200 ms LLM padrão)${RESET}`);
-  console.log(`  ${BOLD}Tempo Total Poupado:${RESET}             ${GREEN}${summary.total_time_saved_sec} segundos${RESET}`);
-  console.log(`  ${BOLD}Tokens de Contexto Poupados:${RESET}     ${GREEN}${summary.total_tokens_saved.toLocaleString()} tokens${RESET}`);
-  console.log(`  ${BOLD}Economia Financeira Estimada:${RESET}    ${GREEN}$${summary.total_cost_saved_usd.toFixed(4)} USD${RESET}\n`);
+  console.log(`  ${BOLD}${L('cliTotalDecisions')}${RESET}       ${GREEN}${summary.total_decisions}${RESET}`);
+  console.log(`  ${BOLD}${L('cliAvgLatency')}${RESET}           ${GREEN}${summary.avg_jev_latency_ms} ms${RESET} ${DIM}${L('cliVsLLM')}${RESET}`);
+  console.log(`  ${BOLD}${L('cliTimeSaved')}${RESET}             ${GREEN}${summary.total_time_saved_sec} s${RESET}`);
+  console.log(`  ${BOLD}${L('cliTokensSaved')}${RESET}     ${GREEN}${summary.total_tokens_saved.toLocaleString()} tokens${RESET}`);
+  console.log(`  ${BOLD}${L('cliCostSaved')}${RESET}    ${GREEN}$${summary.total_cost_saved_usd.toFixed(4)} USD${RESET}\n`);
 
   if (showHistory) {
     const filePath = path.join(process.cwd(), '.jev', 'telemetry.jsonl');
     if (fs.existsSync(filePath)) {
       const lines = fs.readFileSync(filePath, 'utf-8').split('\n').filter(Boolean).slice(-10);
-      console.log(`${BOLD}Últimas 10 Decisões:${RESET}`);
+      console.log(`${BOLD}${L('cliLastDecisions')}${RESET}`);
       lines.forEach((l, idx) => {
         try {
           const row = JSON.parse(l);
-          console.log(`  ${idx + 1}. [${row.feature}] ${row.jev_latency_ms}ms | +${row.estimated_llm_tokens_saved} tokens poupados | status: ${row.status}`);
+          console.log(`  ${idx + 1}. [${row.feature}] ${row.jev_latency_ms}ms | +${row.estimated_llm_tokens_saved} ${L('cliTokensSavedShort')} | ${L('cliStatus')}: ${row.status}`);
         } catch {
           // ignore
         }
@@ -55,12 +59,12 @@ async function showGain(showHistory = false) {
     }
   }
 
-  console.log(`${DIM}Dica: Configure JEV hooks no Claude Code para roteamento e guardrails com zero overhead de contexto.${RESET}\n`);
+  console.log(`${DIM}${L('cliTip')}${RESET}\n`);
 }
 
 async function testConnection() {
   printHeader();
-  console.log('📡 Testando conexão com TypeSafe JEV System One...');
+  console.log(`📡 ${L('cliTesting')}`);
   const startTime = Date.now();
   try {
     const client = new JevClient();
@@ -76,12 +80,12 @@ async function testConnection() {
     );
 
     const elapsed = Date.now() - startTime;
-    console.log(`\n${GREEN}✅ SUCESSO! Conexão estabelecida com sucesso.${RESET}`);
-    console.log(`   Provedor: ${BOLD}${client.config.provider}${RESET}`);
-    console.log(`   Modelo:   ${result.model}`);
-    console.log(`   Latência: ${BOLD}${elapsed} ms${RESET}\n`);
+    console.log(`\n${GREEN}✅ ${L('cliSuccess')}${RESET}`);
+    console.log(`   ${L('cliProvider')} ${BOLD}${client.config.provider}${RESET}`);
+    console.log(`   ${L('cliModel')}   ${result.model}`);
+    console.log(`   ${L('cliLatency')} ${BOLD}${elapsed} ms${RESET}\n`);
   } catch (err) {
-    console.log(`\n❌ Falha na conexão: ${err.message}\n`);
+    console.log(`\n❌ ${L('cliConnFail')} ${err.message}\n`);
   }
 }
 
@@ -107,17 +111,17 @@ async function main() {
   } else if (cmd === '--version' || cmd === '-v') {
     console.log(`jev-claude-engine v${VERSION}`);
   } else {
-    console.log('Comandos disponíveis:');
-    console.log('  jev gain            Exibe estatísticas de tokens e velocidade');
-    console.log('  jev gain --history  Exibe histórico das decisões');
-    console.log('  jev dashboard       Abre dashboard web sob demanda em http://localhost:3838');
-    console.log('  jev browser <meta>  Navegação rápida acelerada via Browser Harness');
-    console.log('  jev test            Testa conexão com a API do JEV');
+    console.log(`${L('cliCommands')}`);
+    console.log(`  jev gain            ${L('cliGain')}`);
+    console.log(`  jev gain --history  ${L('cliGainHistory')}`);
+    console.log(`  jev dashboard       ${L('cliDashboard')}`);
+    console.log(`  jev browser <meta>  ${L('cliBrowser')}`);
+    console.log(`  jev test            ${L('cliTest')}`);
   }
 
 }
 
 main().catch(err => {
-  console.error('Erro no CLI JEV:', err.message);
+  console.error(`${L('cliErr')}`, err.message);
   process.exit(1);
 });
