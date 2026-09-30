@@ -316,7 +316,7 @@ export function createDashboardHtml(initialData, projectDir) {
         <span class="sep">·</span>
         <a href="https://www.linkedin.com/company/devsync" target="_blank" rel="noopener">LinkedIn</a>
         <span class="sep">·</span>
-        <span>by Diego Araújo</span>
+        <a href="https://github.com/daraujo85" target="_blank" rel="noopener">Diego Araújo</a>
       </div>
     </footer>
   </main>
