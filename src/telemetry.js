@@ -25,6 +25,7 @@ export function recordTelemetry(entry, projectDir = process.cwd()) {
       jev_latency_ms: entry.jev_latency_ms || 120,
       jev_input_tokens: entry.jev_input_tokens || 0,
       jev_cost_usd: entry.jev_cost_usd || 0.000008,
+      input_preview: entry.input_preview || '',
       estimated_llm_latency_ms: entry.estimated_llm_latency_ms || 3000,
       estimated_llm_tokens_saved: entry.estimated_llm_tokens_saved || 15000,
       estimated_llm_cost_saved_usd: entry.estimated_llm_cost_saved_usd || 0.045,

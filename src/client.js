@@ -86,6 +86,7 @@ export class JevClient {
         jev_latency_ms: latency,
         jev_input_tokens: inputTokens,
         jev_cost_usd: Number(jevCostUsd.toFixed(8)),
+        input_preview: meta.inputPreview || truncatePreview(state),
         estimated_llm_tokens_saved: meta.tokensSpared || 15000,
         estimated_llm_latency_ms: meta.llmLatency || 3200,
         status: 'success'
@@ -113,4 +114,10 @@ export class JevClient {
       };
     }
   }
+}
+
+function truncatePreview(s, max = 280) {
+  if (typeof s !== 'string' || !s.trim()) return '';
+  const oneLine = s.replace(/\s+/g, ' ').trim();
+  return oneLine.length > max ? oneLine.slice(0, max) + '…' : oneLine;
 }

@@ -116,11 +116,17 @@ export function createDashboardHtml(initialData, projectDir) {
     .badge {
       display: inline-flex; align-items: center; gap: 7px;
       font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
-      color: var(--good); background: var(--good-dim);
-      border: 1px solid rgba(63,182,139,0.28);
-      padding: 5px 11px; border-radius: 999px;
+      color: var(--good);
+      border: 1px solid rgba(63,182,139,0.35);
+      border-radius: 4px;
+      padding: 4px 9px;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      background: transparent;
     }
-    .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
+    .badge::before {
+      content: ""; width: 6px; height: 6px; border-radius: 2px;
+      background: var(--good); box-shadow: 0 0 6px rgba(63,182,139,0.6);
+    }
 
     /* ---- KPI ---- */
     .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 26px; }
@@ -174,6 +180,50 @@ export function createDashboardHtml(initialData, projectDir) {
     .chart-legend .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; }
     .chart-legend .dot.lat { background: var(--accent); }
     .chart-legend .dot.tok { background: var(--good); }
+
+    /* ---- Live input stream ---- */
+    .stream {
+      position: relative;
+      max-height: 320px;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 6px 0;
+      mask-image: linear-gradient(180deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+      -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+    }
+    .stream-item {
+      padding: 9px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex; gap: 12px; align-items: baseline;
+      opacity: 0.28;
+      transition: opacity .6s ease;
+      font-size: 12px;
+    }
+    .stream-item:last-child { border-bottom: none; }
+    .stream-item .s-time { color: var(--muted); font-size: 10.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .stream-item .s-feat { color: var(--accent); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; font-weight: 600; }
+    .stream-item .s-text { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .stream-item.is-new {
+      opacity: 1;
+      animation: streamIn .8s ease, shimmer 2.4s ease 1;
+    }
+    .stream-item.is-new .s-text {
+      background: linear-gradient(90deg, var(--fg) 0%, #ffffff 50%, var(--fg) 100%);
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: shimmerText 2.4s ease 1;
+    }
+    @keyframes streamIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shimmerText {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
 
     /* ---- Feature cards ---- */
     .grid {
@@ -329,6 +379,14 @@ export function createDashboardHtml(initialData, projectDir) {
 
     <div class="section">
       <div class="section-head">
+        <div class="section-title">Live input stream</div>
+        <div class="section-note">what JEV just evaluated — newest on top</div>
+      </div>
+      <div class="stream" id="stream-list"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
         <div class="section-title">Savings by hook and skill</div>
         <div class="section-note">tokens saved and latency per feature</div>
       </div>
@@ -433,6 +491,42 @@ export function createDashboardHtml(initialData, projectDir) {
 
       renderLatencyChart(entries);
       renderFeatureBars(data.by_feature || {});
+      renderStream(entries);
+    }
+
+    // --- Live input stream (newest shimmer, older faded) ---
+    let lastStreamKey = '';
+    function renderStream(entries) {
+      const list = document.getElementById('stream-list');
+      const items = (entries || []).slice(0, 12);
+      if (items.length === 0) { list.innerHTML = ''; return; }
+      const newestKey = items[0].timestamp + '_' + (items[0].feature || '') + '_' + (items[0].jev_latency_ms || '');
+      const isRefresh = newestKey !== lastStreamKey;
+      lastStreamKey = newestKey;
+
+      let html = '';
+      items.forEach((e, i) => {
+        const cls = i === 0 ? 'stream-item is-new' : 'stream-item';
+        const t = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('pt-BR', { hour12: false }) : '--:--:--';
+        const text = e.input_preview || (e.feature || 'general') + ' evaluation';
+        html += '<div class="' + cls + '">' +
+          '<span class="s-time">' + t + '</span>' +
+          '<span class="s-feat">' + (e.feature || 'general') + '</span>' +
+          '<span class="s-text">' + escapeHtml(text) + '</span>' +
+          '</div>';
+      });
+      list.innerHTML = html;
+
+      if (isRefresh) {
+        // auto-scroll: newest at top, older flow down — animate container
+        list.style.transition = 'transform 0.8s ease';
+        list.style.transform = 'translateY(0)';
+      }
+    }
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
     }
 
     // --- Latency line/area chart (inline SVG, last 50 decisions) ---
