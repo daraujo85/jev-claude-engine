@@ -355,6 +355,10 @@ View it with `jev gain` or visualize it with `jev dashboard`.
 
 <img src="docs/jev-dashboard-all.gif" width="100%" alt="JEV Dashboard — all views">
 
+**Mobile:** home (430px)
+
+![JEV Telemetry Dashboard — mobile](docs/jev-home-mobile.png)
+
 Measured in production use: **~716 ms average decision latency** (vs ~3,200 ms LLM), **13.6M+ context tokens spared**, **~$30.32 USD saved** across **674 decisions**.
 
 ---
