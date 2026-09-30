@@ -1,4 +1,5 @@
 node_modules/
 .jev/
 graphify-out/
-.specs/
+.specs/.claude/
+skills-lock.json

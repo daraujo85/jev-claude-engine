@@ -1,6 +1,17 @@
 import http from 'node:http';
 import { exec } from 'node:child_process';
+import { readFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import { readTelemetrySummary } from './telemetry.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// AI-generated logo (Gemini, see docs/jev-logo.png) served as /logo.png.
+const LOGO_PATH = path.join(__dirname, '..', 'docs', 'jev-logo.png');
+let logoBuffer = null;
+try {
+  if (existsSync(LOGO_PATH)) logoBuffer = readFileSync(LOGO_PATH);
+} catch { logoBuffer = null; }
 
 export function createDashboardHtml(initialData, projectDir) {
   return `<!DOCTYPE html>
@@ -8,6 +19,7 @@ export function createDashboardHtml(initialData, projectDir) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/logo.png">
   <title>JEV System One — Telemetry Dashboard</title>
   <style>
     :root {
@@ -66,9 +78,9 @@ export function createDashboardHtml(initialData, projectDir) {
       display: grid; place-items: center;
       background: var(--surface-2);
       border: 1px solid var(--border-strong);
+      overflow: hidden;
     }
-    .brand-mark svg { width: 22px; height: 22px; display: block; }
-    .brand-mark svg .mark-glow { filter: drop-shadow(0 0 6px rgba(124,140,248,0.35)); }
+    .brand-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .brand-name { font-weight: 650; font-size: 13.5px; letter-spacing: -0.01em; }
     .brand-sub { font-size: 10.5px; color: var(--muted); letter-spacing: 0.02em; }
     .nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
@@ -195,25 +207,7 @@ export function createDashboardHtml(initialData, projectDir) {
 <body>
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark">
-        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <defs>
-            <linearGradient id="jev-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stop-color="#7c8cf8"/>
-              <stop offset="1" stop-color="#4cc3d9"/>
-            </linearGradient>
-          </defs>
-          <g class="mark-glow">
-            <!-- J lettermark, constructed geometric strokes -->
-            <path d="M12 8h8" stroke="url(#jev-grad)" stroke-width="2.4" stroke-linecap="round"/>
-            <path d="M12 8v13" stroke="url(#jev-grad)" stroke-width="2.4" stroke-linecap="round"/>
-            <path d="M12 21h6.5" stroke="url(#jev-grad)" stroke-width="2.4" stroke-linecap="round"/>
-            <!-- decision nucleus: single node choosing among paths -->
-            <path d="M23.5 9.5l3-3M23.5 9.5l3 3M23.5 9.5h-4" stroke="url(#jev-grad)" stroke-width="1.6" stroke-linecap="round"/>
-            <circle cx="23.5" cy="9.5" r="2.6" fill="#0d0f14" stroke="url(#jev-grad)" stroke-width="1.6"/>
-          </g>
-        </svg>
-      </div>
+      <div class="brand-mark"><img src="/logo.png" alt="JEV Engine logo"></div>
       <div>
         <div class="brand-name">JEV Engine</div>
         <div class="brand-sub">System One · TypeSafe AI</div>
@@ -399,6 +393,12 @@ export function startDashboardServer(options = {}) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       const stats = readTelemetrySummary(projectDir);
       res.end(JSON.stringify(stats));
+      return;
+    }
+
+    if (req.url === '/logo.png' && logoBuffer) {
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'max-age=300' });
+      res.end(logoBuffer);
       return;
     }
 
