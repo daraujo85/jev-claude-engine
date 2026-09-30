@@ -508,6 +508,11 @@ export function createDashboardHtml(initialData, projectDir) {
           <div class="value" id="val-decisions">...</div>
           <div class="sub"><span data-i18n="kpiFastDecisionsSub">avg latency</span> <span class="cmp" id="val-latency">...</span></div>
         </div>
+        <div class="kpi bar-amber">
+          <div class="label" data-i18n="kpiRequests">Requests</div>
+          <div class="value" id="val-requests">...</div>
+          <div class="sub" data-i18n="kpiRequestsSub">total evaluated</div>
+        </div>
         <div class="kpi bar-good">
           <div class="label" data-i18n="kpiJevSpend">JEV spend</div>
           <div class="value" id="val-jevcost">...</div>
@@ -517,6 +522,11 @@ export function createDashboardHtml(initialData, projectDir) {
           <div class="label" data-i18n="kpiJevBalance">JEV balance</div>
           <div class="value" id="val-jevbalance">...</div>
           <div class="sub" data-i18n="kpiJevBalanceSub">remaining of initial credit</div>
+        </div>
+        <div class="kpi bar-cyan">
+          <div class="label" data-i18n="kpiJevInputTokens">JEV input tokens</div>
+          <div class="value" id="val-jevinput">...</div>
+          <div class="sub" data-i18n="kpiJevInputTokensSub">tokens sent to System One</div>
         </div>
       </div>
 
@@ -805,7 +815,11 @@ export function createDashboardHtml(initialData, projectDir) {
       return i18nStr(key);
     }
     function i18nFmt(key, vars) {
-      return String(i18nStr(key)).replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : ''));
+      let out = String(i18nStr(key));
+      for (const [k, v] of Object.entries(vars || {})) {
+        out = out.split('{' + k + '}').join(v);
+      }
+      return out;
     }
     function fmtShort(n) {
       if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
@@ -829,6 +843,10 @@ export function createDashboardHtml(initialData, projectDir) {
 
       document.getElementById('val-decisions').innerText = (data.total_decisions || 0).toLocaleString('pt-BR');
       document.getElementById('val-latency').innerText = (data.avg_jev_latency_ms || 0) + ' ms';
+      const reqEl = document.getElementById('val-requests');
+      if (reqEl) reqEl.innerText = (data.total_decisions || 0).toLocaleString('pt-BR');
+      const jiEl = document.getElementById('val-jevinput');
+      if (jiEl) jiEl.innerText = (data.total_jev_input_tokens || 0).toLocaleString('pt-BR');
       document.getElementById('val-jevcost').innerText = '$' + (data.total_jev_cost_usd || 0).toFixed(4);
       const balEl = document.getElementById('val-jevbalance');
       if (balEl) {
