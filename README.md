@@ -140,10 +140,36 @@ builds the combos and lists them with their failover chain:
 
 ![JEV 9Router view](docs/jev-router.png)
 
-The dashboard and CLI are **i18n**: pick a language (🇺🇸 English default,
-🇧🇷 Português, 🇪🇸 Español, 🇫🇷 Français, 🇩🇪 Deutsch) from the header dropdown.
-The choice persists in `~/.jev/config.json` (`ui.lang`) and both the
-dashboard UI and the CLI output follow it.
+### 🌍 Multi-language (dashboard + CLI)
+
+The dashboard and the CLI speak your language. Five languages are built in:
+
+| Flag | Language | `ui.lang` |
+| :--- | :--- | :--- |
+| 🇺🇸 | English (default) | `en` |
+| 🇧🇷 | Português (Brasil) | `pt-BR` |
+| 🇪🇸 | Español | `es` |
+| 🇫🇷 | Français | `fr` |
+| 🇩🇪 | Deutsch | `de` |
+
+**Dashboard:** pick a language from the flag dropdown in the header. Every
+element follows it live — sidebar, navigation, view titles/crumbs, action
+buttons (Save / Run profiler / Test connection), section labels and feature
+tooltips. The choice is saved to `~/.jev/config.json` (`ui.lang`) and
+survives reloads.
+
+**CLI:** `jev gain`, `jev test` and the help output render in the configured
+language automatically (same `ui.lang`).
+
+**How to change it:** use the header dropdown, or set it directly:
+
+```bash
+# via config file
+node -e "import('./src/jev-config.js').then(({loadConfig,saveConfig})=>{const c=loadConfig();c.ui={lang:'pt-BR'};saveConfig(c)})"
+```
+
+Translations live in `src/i18n.js` — add a key to all five dictionaries to
+cover a new string.
 
 **Task → subagent routing (inside Claude Code, no tmux).** When you type a
 free-text prompt, the `jev-task-router` hook classifies it (System One,
@@ -336,13 +362,14 @@ falls back to a deterministic mock with no network egress.
 | Agent | Hooks (automatic) | Skills | Dashboard |
 | :--- | :--- | :--- | :--- |
 | **Claude Code** | ✅ `PreToolUse`/`PostToolUse`/`PreCompact`/`UserPromptSubmit` via `settings.json` | ✅ `~/.claude/skills/` | ✅ `jev dashboard` |
-| **OpenCode** | ✅ plugin `plugins/jev.js` (`tool.execute.before` + `experimental.session.compacting`) | ✅ `~/.opencode/skills/` | ✅ |
-| **Codex CLI** | ✅ `~/.codex/hooks.json` (`codex_hooks` feature): rule-guard, test-verifier, skill-picker, fast-compact | ✅ `~/.codex/skills/` | ✅ |
-| **AGY (Antigravity)** | ✅ `~/.gemini/config/hooks.json`: rule-guard, test-verifier, skill-picker, fast-compact | ✅ `~/.gemini/skills/` | ✅ |
+| **OpenCode** | ✅ plugin `plugins/jev.js` (`tool.execute.before` + `experimental.session.compacting` + task routing) | ✅ `~/.opencode/skills/` | ✅ |
+| **Codex CLI** | ✅ `~/.codex/hooks.json` (`codex_hooks` feature): rule-guard, test-verifier, skill-picker, fast-compact, task-router | ✅ `~/.codex/skills/` | ✅ |
+| **AGY (Antigravity)** | ✅ `~/.gemini/config/hooks.json`: rule-guard, test-verifier, skill-picker, fast-compact, task-router | ✅ `~/.gemini/skills/` | ✅ |
 
 - **Skills** sync to all agents via `scripts/sync-skills.sh` (Claude Code, OpenCode, Codex, AGY, `.agents`).
-- **Shared config** `~/.jev/config.json` (hooks on/off + thresholds + pricing/balance + API key) read by every hook and the dashboard.
-- **OpenCode plugin** (`plugins/jev-opencode.js`) mirrors the Claude Code hooks: anti-regression on file edits and JEV compaction guidance.
+- **Subagents** are generated per harness by `scripts/generate-subagents.js`: Claude Code `~/.claude/agents/jev-*.md` (`model: <combo>`) and OpenCode `~/.config/opencode/agent/jev-*.md` (`model: 9router/<combo>`). Codex and AGY receive the task-routing directive via hooks and run the work inline.
+- **Shared config** `~/.jev/config.json` (hooks on/off + thresholds + pricing/balance + API key + `ui.lang` + `router.task_combos`) read by every hook and the dashboard.
+- **OpenCode plugin** (`plugins/jev.js`) mirrors the Claude Code hooks: anti-regression on file edits, JEV compaction guidance, and task→subagent routing.
 - All hooks follow the same **fail-open** discipline — a JEV timeout or error never blocks the session, across every agent.
 
 ---
@@ -360,11 +387,16 @@ src/
   ui.js               ANSI decision cards & diff highlight renderer
   dashboard.js        Zero-dependency on-demand web dashboard
   mock-provider.js    Deterministic offline decision engine
+  model-router.js     9Router model profiling, combos & task routing
+  model-catalog.js    Cost (USD/M), latency & benchmarks per model
+  task-router.js      Prompt → task type → subagent/combo (System One)
+  i18n.js             5-language dictionaries (en/pt-BR/es/fr/de)
 hooks/
   jev-rule-guard.js      PreToolUse  — anti-hallucination guard
   jev-fast-compact.js    PreCompact  — keep/discard classification
   jev-test-verifier.js   PostToolUse — test coverage verifier
   jev-skill-picker.js    UserPromptSubmit — skill router
+  jev-task-router.js     UserPromptSubmit — task → subagent routing
 skills/
   jev-discover/          Graphify ➔ GrepAI ➔ JEV ➔ Claude pipeline
   jev-explore/           Batch file scoring
@@ -372,10 +404,14 @@ skills/
   jev-plan-evaluator/    Root-cause plan validator
   jev-anti-regression/   Regression sentinel
   jev-browser-test/      Autonomous UI navigator + harness helpers
+  jev-model-router/      Model profiling, combos & task routing CLI
+  jev-fanout/            Parallel task decomposition
 bin/
   jev.js                 CLI (gain / dashboard / browser / test)
 scripts/
   install-hooks.js       One-shot Claude Code installer
+  generate-subagents.js  Per-task subagents → ~/.claude/agents + OpenCode
+  jev-profile.js         Project profile (.claude/jev-profile.md)
 ```
 
 ---
