@@ -396,26 +396,31 @@ export function createDashboardHtml(initialData, projectDir) {
       </div>
     </div>
 
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-title">Requests by project</div>
+          <div class="chart-sub">decisions evaluated</div>
+        </div>
+        <svg class="chart-svg" id="chart-projects-req" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
+        <div class="chart-legend"><span><span class="dot lat"></span>decisions</span></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-title">Tokens saved by project</div>
+          <div class="chart-sub">cumulative per project</div>
+        </div>
+        <svg class="chart-svg" id="chart-projects-tok" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
+        <div class="chart-legend"><span><span class="dot tok"></span>tokens saved</span></div>
+      </div>
+    </div>
+
     <div class="section">
       <div class="section-head">
         <div class="section-title">Live input stream</div>
         <div class="section-note">what JEV just evaluated — newest on top</div>
       </div>
       <div class="stream" id="stream-list"></div>
-    </div>
-
-    <div class="section">
-      <div class="section-head">
-        <div class="section-title">Usage by project</div>
-        <div class="section-note">decisions and tokens saved per project</div>
-      </div>
-      <div class="chart-card">
-        <svg class="chart-svg" id="chart-projects" viewBox="0 0 400 200" preserveAspectRatio="none"></svg>
-        <div class="chart-legend">
-          <span><span class="dot lat"></span>decisions</span>
-          <span><span class="dot tok"></span>tokens saved</span>
-        </div>
-      </div>
     </div>
 
     <div class="section">
@@ -524,7 +529,8 @@ export function createDashboardHtml(initialData, projectDir) {
 
       renderLatencyChart(entries);
       renderFeatureBars(data.by_feature || {});
-      renderProjectBars(data.by_project || {});
+      renderProjectBars('chart-projects-req', data.by_project || {}, 'count');
+      renderProjectBars('chart-projects-tok', data.by_project || {}, 'tokens_saved');
       renderStream(entries);
     }
 
@@ -702,31 +708,26 @@ function projectShort(p) {
       return s + 's';
     }
 
-    // --- Usage by project: twin bars (decisions + tokens saved) per project ---
-    function renderProjectBars(byProject) {
-      const svg = document.getElementById('chart-projects');
-      const W = 400, H = 200, pad = 8, barH = 7, gap = 22;
+    // --- Single-metric bars per project (requests or tokens) ---
+    function renderProjectBars(svgId, byProject, metric) {
+      const svg = document.getElementById(svgId);
+      if (!svg) return;
+      const W = 400, H = 200, pad = 8, barH = 16, gap = 18;
       const projects = Object.entries(byProject || {})
-        .sort((a, b) => b[1].count - a[1].count)
+        .sort((a, b) => b[1][metric] - a[1][metric])
         .slice(0, 8);
       if (projects.length === 0) { svg.innerHTML = ''; return; }
 
-      const maxCount = Math.max(...projects.map(([, p]) => p.count), 1);
-      const maxTokens = Math.max(...projects.map(([, p]) => p.tokens_saved), 1);
-      const labelW = 110, barMax = W - pad - labelW - pad - 34;
+      const max = Math.max(...projects.map(([, p]) => p[metric]), 1);
+      const labelW = 110, barMax = W - pad - labelW - pad - 40;
+      const fill = metric === 'count' ? 'var(--accent)' : 'var(--good)';
       let out = '';
       projects.forEach(([name, p], i) => {
-        const y = pad + i * gap;
-        const wDec = Math.max(3, (p.count / maxCount) * barMax);
-        const wTok = Math.max(3, (p.tokens_saved / maxTokens) * barMax);
-        // label
-        out += '<text class="axis-label" x="' + pad + '" y="' + (y + 12) + '">' + truncate(name, 18) + '</text>';
-        // twin bars
-        out += '<rect class="bar" x="' + (pad + labelW) + '" y="' + y + '" width="' + wDec.toFixed(1) + '" height="' + barH + '" rx="2"/>' +
-          '<rect class="bar" style="fill:var(--good)" x="' + (pad + labelW) + '" y="' + (y + barH + 2) + '" width="' + wTok.toFixed(1) + '" height="' + barH + '" rx="2"/>';
-        // counts on the right
-        out += '<text class="axis-label" x="' + (pad + labelW + barMax + 6) + '" y="' + (y + barH) + '">' + p.count + '</text>' +
-          '<text class="axis-label" x="' + (pad + labelW + barMax + 6) + '" y="' + (y + 2 * barH + 2) + '">' + fmtShort(p.tokens_saved) + '</text>';
+        const y = pad + i * gap + 4;
+        const w = Math.max(3, (p[metric] / max) * barMax);
+        out += '<text class="axis-label" x="' + pad + '" y="' + (y + barH - 4) + '">' + truncate(name, 18) + '</text>' +
+          '<rect class="bar" style="fill:' + fill + '" x="' + (pad + labelW) + '" y="' + y + '" width="' + w.toFixed(1) + '" height="' + barH + '" rx="3"/>' +
+          '<text class="axis-label" x="' + (pad + labelW + barMax + 6) + '" y="' + (y + barH - 4) + '">' + (metric === 'count' ? p.count : fmtShort(p.tokens_saved)) + '</text>';
       });
       svg.innerHTML = out;
     }
