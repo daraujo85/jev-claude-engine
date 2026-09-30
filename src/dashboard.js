@@ -518,11 +518,6 @@ export function createDashboardHtml(initialData, projectDir) {
           <div class="value" id="val-jevbalance">...</div>
           <div class="sub" data-i18n="kpiJevBalanceSub">remaining of initial credit</div>
         </div>
-        <div class="kpi bar-cyan">
-          <div class="label" data-i18n="kpiJevInputTokens">JEV input tokens</div>
-          <div class="value" id="val-jevinput">...</div>
-          <div class="sub" data-i18n="kpiJevInputTokensSub">tokens sent to System One</div>
-        </div>
       </div>
 
       <div class="charts-row">
@@ -838,8 +833,6 @@ export function createDashboardHtml(initialData, projectDir) {
 
       document.getElementById('val-decisions').innerText = (data.total_decisions || 0).toLocaleString('pt-BR');
       document.getElementById('val-latency').innerText = (data.avg_jev_latency_ms || 0) + ' ms';
-      const jiEl = document.getElementById('val-jevinput');
-      if (jiEl) jiEl.innerText = (data.total_jev_input_tokens || 0).toLocaleString('pt-BR');
       document.getElementById('val-jevcost').innerText = '$' + (data.total_jev_cost_usd || 0).toFixed(4);
       const balEl = document.getElementById('val-jevbalance');
       if (balEl) {
