@@ -599,6 +599,18 @@ export function createDashboardHtml(initialData, projectDir) {
         </div>
 
         <div class="cfg-item">
+          <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+          <div class="cfg-meta">
+            <div class="cfg-name">JEV API key</div>
+            <div class="cfg-desc">TypeSafe System One · used when no JEV_API_KEY env is set</div>
+          </div>
+          <div class="cfg-controls">
+            <label class="cfg-field"><input type="text" id="cfg-api-key" placeholder="apikey_..." style="width:220px" autocomplete="off" spellcheck="false"></label>
+            <button class="btn" type="button" onclick="toggleApiKey()" title="Show / hide">Reveal</button>
+          </div>
+        </div>
+
+        <div class="cfg-item">
           <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M8.5 9h5a2 2 0 0 1 0 4h-3a2 2 0 0 0 0 4h5"/></svg></div>
           <div class="cfg-meta">
             <div class="cfg-name">Price per million input</div>
@@ -1110,8 +1122,13 @@ function projectShort(p) {
       const bal = jevConfig?.pricing?.initial_balance_usd;
       const p = document.getElementById('cfg-price-per-m');
       const b = document.getElementById('cfg-initial-balance');
+      const key = document.getElementById('cfg-api-key');
       if (p) p.value = price !== undefined ? price : 0.04;
       if (b) b.value = bal !== undefined ? bal : 5;
+      if (key) {
+        key.value = jevConfig?.jev?.api_key || '';
+        maskApiKeyInput();
+      }
       updateRemainingBalance();
     }
 
@@ -1166,7 +1183,7 @@ function projectShort(p) {
     window.addEventListener('popstate', () => showView(viewFromQuery()));
 
     function collectConfig() {
-      const out = { hooks: {}, skills: {}, pricing: {}
+      const out = { hooks: {}, skills: {}, pricing: {}, jev: {}
       };
       // Only read inputs from the currently visible view to avoid
       // duplicated fields (rule-guard/test-verifier appear in both
@@ -1185,9 +1202,41 @@ function projectShort(p) {
       });
       const price = document.getElementById('cfg-price-per-m');
       const bal = document.getElementById('cfg-initial-balance');
+      const key = document.getElementById('cfg-api-key');
       if (price) out.pricing.price_per_million_input = Number(price.value) || 0.04;
       if (bal) out.pricing.initial_balance_usd = Number(bal.value) || 0;
+      // use the unmasked value (input may be visually masked)
+      if (key) out.jev.api_key = (typeof fullApiKey === 'string' ? fullApiKey : key.value).trim();
       return out;
+    }
+
+    function toggleApiKey() {
+      const k = document.getElementById('cfg-api-key');
+      const btn = document.querySelector('#view-settings button[onclick="toggleApiKey()"]');
+      if (!k) return;
+      const revealed = k.dataset.revealed === '1';
+      if (revealed) {
+        // hide: mask it back
+        k.dataset.revealed = '0';
+        maskApiKeyInput();
+        if (btn) btn.innerText = 'Reveal';
+      } else {
+        // reveal: show full value
+        k.dataset.revealed = '1';
+        k.value = fullApiKey || '';
+        if (btn) btn.innerText = 'Hide';
+      }
+    }
+
+    let fullApiKey = '';
+    function maskApiKeyInput() {
+      const k = document.getElementById('cfg-api-key');
+      if (!k) return;
+      fullApiKey = k.value || '';
+      k.dataset.revealed = '0';
+      const v = fullApiKey;
+      if (v.length > 12) k.value = v.slice(0, 12) + '…';
+      else if (v) k.value = '••••' + v.slice(-4);
     }
 
     async function saveConfig() {

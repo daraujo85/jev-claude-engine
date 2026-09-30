@@ -330,7 +330,11 @@ View it with `jev gain` or visualize it with `jev dashboard`.
 
 ![JEV Hooks & Skills config](docs/jev-config.png)
 
-Measured in production use: **~716 ms average decision latency** (vs ~3,200 ms LLM), **13.2M+ context tokens spared**, **~$29.50 USD saved** across **656 decisions**.
+**All views (animated):** Telemetry → Hooks & Skills → Guardrails → Settings
+
+![JEV Dashboard — all views](docs/jev-dashboard-all.gif)
+
+Measured in production use: **~716 ms average decision latency** (vs ~3,200 ms LLM), **13.6M+ context tokens spared**, **~$30.32 USD saved** across **674 decisions**.
 
 ---
 

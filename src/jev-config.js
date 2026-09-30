@@ -8,6 +8,9 @@ import os from 'node:os';
 import path from 'node:path';
 
 export const DEFAULT_CONFIG = {
+  jev: {
+    api_key: ''
+  },
   pricing: {
     price_per_million_input: 0.04,
     initial_balance_usd: 5.0

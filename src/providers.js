@@ -16,6 +16,25 @@ function getClaudeSettingsKey() {
   return '';
 }
 
+// JEV API key from ~/.jev/config.json (dashboard Settings) as a fallback
+// when no env var is set. Fail-silent.
+function getConfigKey() {
+  try {
+    const cfgPath = path.join(os.homedir(), '.jev', 'config.json');
+    if (fs.existsSync(cfgPath)) {
+      const data = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      return data?.jev?.api_key || '';
+    }
+  } catch {
+    // ignore
+  }
+  return '';
+}
+
+function envKey() {
+  return process.env.JEV_API_KEY || process.env.TYPESAFE_API_KEY || getConfigKey() || getClaudeSettingsKey();
+}
+
 export function resolveProviderConfig(options = {}) {
   // If explicitly mock or JEV_MOCK_MODE is enabled
   if (options.provider === PROVIDERS.MOCK || process.env.JEV_MOCK_MODE === '1' || process.env.JEV_MOCK_MODE === 'true') {
@@ -42,7 +61,7 @@ export function resolveProviderConfig(options = {}) {
       return {
         provider: PROVIDERS.VERCEL,
         endpoint: options.gatewayUrl || process.env.JEV_GATEWAY_URL || 'https://gateway.ai.cloudflare.com/v1/typesafe/systemone',
-        apiKey: options.apiKey || process.env.VERCEL_AI_GATEWAY_TOKEN || process.env.JEV_API_KEY || '',
+apiKey: options.apiKey || process.env.VERCEL_AI_GATEWAY_TOKEN || envKey() || '',
         timeoutMs: options.timeoutMs || 1500
       };
     }
@@ -50,7 +69,7 @@ export function resolveProviderConfig(options = {}) {
       return {
         provider: PROVIDERS.TYPESAFE,
         endpoint: 'https://api.typesafe.ai/v1/systemone',
-        apiKey: options.apiKey || process.env.JEV_API_KEY || '',
+        apiKey: options.apiKey || envKey() || '',
         timeoutMs: options.timeoutMs || 1500
       };
     }
@@ -68,7 +87,7 @@ export function resolveProviderConfig(options = {}) {
   }
 
   // 2. Direct TYPESAFE_API_KEY or JEV_API_KEY (or from ~/.claude/settings.json)
-  const typeSafeKey = options.apiKey || process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY || getClaudeSettingsKey();
+  const typeSafeKey = options.apiKey || envKey();
   if (typeSafeKey) {
     return {
       provider: PROVIDERS.TYPESAFE,
