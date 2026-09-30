@@ -129,10 +129,16 @@ export function suggestCombos(profiles, options = {}) {
   for (const p of profiles) {
     (byTask[p.bestTask] = byTask[p.bestTask] || []).push(p);
   }
+  // Combo names must match what the target agent accepts. Claude Code only
+  // allows models/combos prefixed with "claude" (e.g. claude-coder); the
+  // 9Router combos it exposes follow that convention too.
+  const prefix = options.comboPrefix || 'claude';
   const combos = [];
   for (const [task, ps] of Object.entries(byTask)) {
     ps.sort((a, b) => b.score - a.score);
-    const name = options.comboPrefix || 'jev-' + task;
+    // task names use underscores internally → dash in combo name to match
+    // the 9Router convention (claude-coder, claude-free, ...).
+    const name = prefix + '-' + task.replace(/_/g, '-');
     const models = ps.slice(0, options.modelsPerCombo || 3).map(p => p.model);
     combos.push({ name, task, models, failover: models.slice(1), primary: models[0] });
   }
