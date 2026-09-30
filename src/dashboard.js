@@ -1377,7 +1377,7 @@ function projectShort(p) {
       const key = document.getElementById('cfg-router-key') ? fullRouterKey || document.getElementById('cfg-router-key').value : '';
       msg.innerText = 'Testing…';
       try {
-        const res = await fetch(url.replace(/\/+$/, '') + '/v1/models', {
+        const res = await fetch(url.replace(/[\\/]+$/, '') + '/v1/models', {
           headers: { Authorization: 'Bearer ' + key }
         });
         if (!res.ok) { msg.className = 'save-msg err'; msg.innerText = 'HTTP ' + res.status; return; }
