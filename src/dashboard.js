@@ -1341,6 +1341,15 @@ function projectShort(p) {
       document.querySelectorAll('#view-router input[data-router]').forEach(inp => {
         out.router[inp.dataset.router] = inp.checked;
       });
+      // preserve router fields the form does not edit (profiler output,
+      // task→combo map) — otherwise Save wipes them (deepMerge drops them).
+      const prevRouter = jevConfig?.router || {};
+      if (Array.isArray(prevRouter.suggested_combos) && prevRouter.suggested_combos.length) {
+        out.router.suggested_combos = prevRouter.suggested_combos;
+      }
+      if (prevRouter.task_combos && typeof prevRouter.task_combos === 'object') {
+        out.router.task_combos = prevRouter.task_combos;
+      }
       return out;
     }
 
