@@ -328,7 +328,7 @@ View it with `jev gain` or visualize it with `jev dashboard`.
 
 ![JEV Telemetry Dashboard](docs/jev-dashboard.png)
 
-Measured in production use: **~716 ms average decision latency** (vs ~3,200 ms LLM), **11.1M+ context tokens spared**, **~$25.73 USD saved** across **572 decisions**.
+Measured in production use: **~716 ms average decision latency** (vs ~3,200 ms LLM), **12.4M+ context tokens spared**, **~$28.25 USD saved** across **628 decisions**.
 
 ---
 

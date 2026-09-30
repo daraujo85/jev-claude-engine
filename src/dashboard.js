@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readTelemetrySummary } from './telemetry.js';
+import { loadConfig, saveConfig, resetConfig, DEFAULT_CONFIG } from './jev-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // AI-generated logo (Gemini, see docs/jev-logo.png) served as /logo.png.
@@ -300,6 +301,49 @@ export function createDashboardHtml(initialData, projectDir) {
     footer a { color: var(--muted); text-decoration: none; transition: color .15s; }
     footer a:hover { color: var(--fg); }
     footer .sep { opacity: 0.4; }
+
+    /* ---- Config (Hooks & Skills) ---- */
+    .config-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    @media (max-width: 1100px) { .config-row { grid-template-columns: 1fr; } }
+    .config-group .group-label {
+      font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;
+      margin: 22px 0 10px; font-weight: 600;
+    }
+    .config-group:first-child .group-label { margin-top: 0; }
+    .cfg-item {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin-bottom: 10px;
+    }
+    .cfg-item .cfg-meta { min-width: 0; }
+    .cfg-item .cfg-name { font-weight: 600; font-size: 12.5px; }
+    .cfg-item .cfg-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .cfg-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .cfg-field { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+    .cfg-field input {
+      width: 58px; background: var(--surface-2); border: 1px solid var(--border-strong);
+      color: var(--fg); border-radius: 5px; padding: 4px 6px; font-size: 11.5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .toggle { position: relative; width: 34px; height: 19px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle .slider {
+      position: absolute; inset: 0; border-radius: 999px; cursor: pointer;
+      background: var(--surface-2); border: 1px solid var(--border-strong); transition: .2s;
+    }
+    .toggle .slider::before {
+      content: ""; position: absolute; width: 13px; height: 13px; left: 2px; top: 2px;
+      border-radius: 50%; background: var(--muted); transition: .2s;
+    }
+    .toggle input:checked + .slider { background: rgba(63,182,139,0.25); border-color: var(--good); }
+    .toggle input:checked + .slider::before { transform: translateX(15px); background: var(--good); }
+    .config-actions { display: flex; gap: 10px; margin-top: 6px; }
+    .config-actions .btn-primary {
+      background: var(--good); color: #0d0f14; border: 1px solid var(--good); font-weight: 650;
+    }
+    .config-actions .btn-primary:hover { filter: brightness(1.1); background: var(--good); border-color: var(--good); }
+    .save-msg { font-size: 11.5px; color: var(--good); min-height: 16px; align-self: center; }
+    .save-msg.err { color: var(--bad); }
   </style>
 </head>
 <body>
@@ -346,6 +390,20 @@ export function createDashboardHtml(initialData, projectDir) {
       <div class="right">
         <span class="badge">On-demand</span>
         <button class="btn" onclick="fetchData()">Refresh</button>
+      </div>
+    </div>
+
+    <div class="section" id="config-section">
+      <div class="section-head">
+        <div class="section-title">Hooks &amp; Skills</div>
+        <div class="section-note">toggle on/off and tune thresholds · saved to ~/.jev/config.json</div>
+      </div>
+      <div class="config-row" id="config-hooks"></div>
+      <div class="config-row" id="config-skills"></div>
+      <div class="config-actions">
+        <button class="btn btn-primary" onclick="saveConfig()">Save</button>
+        <button class="btn" onclick="resetConfig()">Reset to defaults</button>
+        <span class="save-msg" id="save-msg"></span>
       </div>
     </div>
 
@@ -742,8 +800,98 @@ function projectShort(p) {
       }
     }
 
+    // --- Hooks & Skills config UI ---
+    const HOOK_META = {
+      'jev-rule-guard': { desc: 'block edits that violate project rules or break contracts', fields: [['confidence_threshold', 0.80], ['block_contract_break', true], ['block_logic_weakening', true]] },
+      'jev-skill-picker': { desc: 'route prompts to the best skill', fields: [['confidence_threshold', 0.50], ['min_skills', 5]] },
+      'jev-fast-compact': { desc: 'guide context compaction', fields: [['usage_threshold', 25]] },
+      'jev-test-verifier': { desc: 'flag control files without test coverage', fields: [['control_file_pattern', 'regex']] }
+    };
+    const SKILL_META = {
+      'jev-discover': { desc: 'hybrid discovery (graph + search + JEV)', fields: [['top_files', 3]] },
+      'jev-explore': { desc: 'score files and pick top relevant', fields: [['batch_size', 20], ['top_files', 3]] },
+      'jev-review': { desc: '7-question review pre-filter', fields: [['confidence_threshold', 0.50]] },
+      'jev-anti-regression': { desc: 'detect regression risk in diffs', fields: [['confidence_threshold', 0.75]] },
+      'jev-plan-evaluator': { desc: 'validate bugfix plans', fields: [['min_score', 2.5]] },
+      'jev-browser-test': { desc: 'autonomous browser UI testing', fields: [['max_steps', 10]] }
+    };
+    let jevConfig = {};
+
+    function cfgItemHTML(kind, name, meta, enabled) {
+      const fields = (meta.fields || []).map(([f, defaultVal]) => {
+        const v = jevConfig[kind]?.[name]?.[f];
+        const val = v === undefined ? defaultVal : v;
+        if (typeof defaultVal === 'boolean') {
+          return '<label class="cfg-field">' + f +
+            '<input type="checkbox" data-kind="' + kind + '" data-name="' + name + '" data-field="' + f + '" ' + (val ? 'checked' : '') + '></label>';
+        }
+        return '<label class="cfg-field">' + f +
+          '<input type="number" step="any" data-kind="' + kind + '" data-name="' + name + '" data-field="' + f + '" value="' + val + '"></label>';
+      }).join('');
+      return '<div class="cfg-item">' +
+        '<div class="cfg-meta"><div class="cfg-name">' + name + '</div><div class="cfg-desc">' + meta.desc + '</div></div>' +
+        '<div class="cfg-controls">' + fields +
+        '<label class="toggle"><input type="checkbox" data-kind="' + kind + '" data-name="' + name + '" data-field="enabled" ' + (enabled ? 'checked' : '') + '><span class="slider"></span></label>' +
+        '</div></div>';
+    }
+
+    function renderConfig() {
+      const hooks = document.getElementById('config-hooks');
+      const skills = document.getElementById('config-skills');
+      hooks.innerHTML = '<div class="config-group"><div class="group-label">Hooks</div>' +
+        Object.entries(HOOK_META).map(([n, m]) => cfgItemHTML('hooks', n, m, jevConfig.hooks?.[n]?.enabled !== false)).join('') + '</div>';
+      skills.innerHTML = '<div class="config-group"><div class="group-label">Skills</div>' +
+        Object.entries(SKILL_META).map(([n, m]) => cfgItemHTML('skills', n, m, jevConfig.skills?.[n]?.enabled !== false)).join('') + '</div>';
+    }
+
+    async function initConfig() {
+      try {
+        const res = await fetch('/api/config');
+        jevConfig = await res.json();
+        renderConfig();
+      } catch (e) { console.error('config load failed', e); }
+    }
+
+    function collectConfig() {
+      const out = { hooks: {}, skills: {} };
+      document.querySelectorAll('[data-kind][data-name]').forEach(inp => {
+        const kind = inp.dataset.kind, name = inp.dataset.name, field = inp.dataset.field;
+        out[kind][name] = out[kind][name] || {};
+        out[kind][name][field] = inp.type === 'checkbox' ? inp.checked : Number(inp.value);
+      });
+      return out;
+    }
+
+    async function saveConfig() {
+      const msg = document.getElementById('save-msg');
+      try {
+        const res = await fetch('/api/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(collectConfig())
+        });
+        const data = await res.json();
+        msg.className = 'save-msg' + (data.success ? '' : ' err');
+        msg.innerText = data.success ? 'Saved to ~/.jev/config.json' : data.error;
+        if (data.success) { jevConfig = data.config; renderConfig(); }
+      } catch (e) { msg.className = 'save-msg err'; msg.innerText = String(e.message || e); }
+    }
+
+    async function resetConfig() {
+      const msg = document.getElementById('save-msg');
+      try {
+        const res = await fetch('/api/config/reset', { method: 'POST' });
+        const data = await res.json();
+        jevConfig = data.config;
+        renderConfig();
+        msg.className = 'save-msg';
+        msg.innerText = 'Reset to defaults';
+      } catch (e) { msg.className = 'save-msg err'; msg.innerText = String(e.message || e); }
+    }
+
     render(currentData);
     setInterval(fetchData, 4000);
+    initConfig();
   </script>
 </body>
 </html>`;
@@ -758,6 +906,37 @@ export function startDashboardServer(options = {}) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       const stats = readTelemetrySummary(projectDir);
       res.end(JSON.stringify(stats));
+      return;
+    }
+
+    if (req.url === '/api/config') {
+      if (req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(loadConfig()));
+        return;
+      }
+      if (req.method === 'PUT') {
+        let body = '';
+        req.on('data', c => { body += c; if (body.length > 1e6) req.destroy(); });
+        req.on('end', () => {
+          try {
+            const cfg = JSON.parse(body || '{}');
+            const merged = saveConfig(cfg);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, config: merged }));
+          } catch (e) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: e.message }));
+          }
+        });
+        return;
+      }
+    }
+
+    if (req.url === '/api/config/reset' && req.method === 'POST') {
+      const merged = resetConfig();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, config: merged }));
       return;
     }
 

@@ -10,6 +10,7 @@ import { JevClient } from '../src/client.js';
 import { extractProjectRules } from '../src/rule-parser.js';
 import { QUESTION_TYPES } from '../src/types.js';
 import { renderDiffCard, renderJevCard } from '../src/ui.js';
+import { loadConfig, isEnabled } from '../src/jev-config.js';
 
 async function main() {
   let input = '';
@@ -51,6 +52,16 @@ async function main() {
     process.exit(0);
   }
 
+  // Config-driven: allow disabling the hook or tuning thresholds.
+  const cfg = loadConfig();
+  if (!isEnabled(cfg, 'hooks', 'jev-rule-guard')) {
+    process.exit(0);
+  }
+  const hookCfg = cfg?.hooks?.['jev-rule-guard'] || {};
+  const confThreshold = typeof hookCfg.confidence_threshold === 'number' ? hookCfg.confidence_threshold : 0.80;
+  const blockContract = hookCfg.block_contract_break !== false;
+  const blockLogic = hookCfg.block_logic_weakening !== false;
+
   const rules = extractProjectRules(cwd);
   const context = `
 ARQUIVO MODIFICADO: ${filePath}
@@ -87,9 +98,9 @@ ${fileContent.slice(0, 4000)}
   );
 
   const answers = result?.answers || {};
-  const ruleViolation = answers.violates_rule?.noul === true && (answers.violates_rule?.probability || 0) >= 0.80;
-  const contractRegression = answers.breaks_public_contract?.noul === true && (answers.breaks_public_contract?.probability || 0) >= 0.85;
-  const logicRegression = answers.weakens_existing_behavior?.noul === true && (answers.weakens_existing_behavior?.probability || 0) >= 0.85;
+  const ruleViolation = answers.violates_rule?.noul === true && (answers.violates_rule?.probability || 0) >= confThreshold;
+  const contractRegression = blockContract && answers.breaks_public_contract?.noul === true && (answers.breaks_public_contract?.probability || 0) >= confThreshold;
+  const logicRegression = blockLogic && answers.weakens_existing_behavior?.noul === true && (answers.weakens_existing_behavior?.probability || 0) >= confThreshold;
 
   if (ruleViolation || contractRegression || logicRegression) {
     let reason = 'Violação de regras de arquitetura ou convenções do projeto';

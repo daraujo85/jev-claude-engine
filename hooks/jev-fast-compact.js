@@ -16,6 +16,7 @@
 
 import { JevClient } from '../src/client.js';
 import { QUESTION_TYPES } from '../src/types.js';
+import { loadConfig, isEnabled } from '../src/jev-config.js';
 
 async function main() {
   let input = '';
@@ -32,14 +33,21 @@ async function main() {
   }
 
   // Context utilization: prefer explicit, else tokens_used / context_window.
+  const cfg = loadConfig();
+  if (!isEnabled(cfg, 'hooks', 'jev-fast-compact')) {
+    process.exit(0);
+  }
+  const hookCfg = cfg?.hooks?.['jev-fast-compact'] || {};
+  const usageThreshold = typeof hookCfg.usage_threshold === 'number' ? hookCfg.usage_threshold : 25;
+
   const usagePct =
     sessionData.context_utilization ||
     (sessionData.tokens_used && sessionData.context_window
       ? Math.round((sessionData.tokens_used / sessionData.context_window) * 100)
       : (sessionData.tokens_used || 0) > 50000 ? 30 : 15);
 
-  // Only activate JEV when context is > 25%.
-  if (usagePct <= 25) {
+  // Only activate JEV when context is above the configured threshold.
+  if (usagePct <= usageThreshold) {
     process.exit(0);
   }
 

@@ -9,6 +9,7 @@ import { JevClient } from '../src/client.js';
 import { scanInstalledSkills } from '../src/skills-scanner.js';
 import { QUESTION_TYPES } from '../src/types.js';
 import { renderJevCard } from '../src/ui.js';
+import { loadConfig, isEnabled } from '../src/jev-config.js';
 
 async function main() {
   let input = '';
@@ -28,8 +29,16 @@ async function main() {
     // raw text input
   }
 
+  const cfg = loadConfig();
+  if (!isEnabled(cfg, 'hooks', 'jev-skill-picker')) {
+    process.exit(0);
+  }
+  const hookCfg = cfg?.hooks?.['jev-skill-picker'] || {};
+  const confThreshold = typeof hookCfg.confidence_threshold === 'number' ? hookCfg.confidence_threshold : 0.50;
+  const minSkills = typeof hookCfg.min_skills === 'number' ? hookCfg.min_skills : 5;
+
   const skills = scanInstalledSkills();
-  if (!skills || skills.length < 5) {
+  if (!skills || skills.length < minSkills) {
     // Not enough skills to warrant routing overhead
     process.exit(0);
   }
@@ -64,7 +73,7 @@ async function main() {
   const confidence = answer?.confidence || 0;
   const choiceProb = answer?.probabilities?.[answer?.choice] || confidence;
 
-  if (answer && answer.choice && answer.choice !== 'none' && (confidence >= 0.50 || choiceProb >= 0.50)) {
+  if (answer && answer.choice && answer.choice !== 'none' && (confidence >= confThreshold || choiceProb >= confThreshold)) {
     const effectiveProb = Math.max(confidence, choiceProb);
     const tokensSaved = skills.length * 350;
     const card = renderJevCard({

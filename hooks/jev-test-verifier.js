@@ -9,9 +9,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { JevClient } from '../src/client.js';
 import { QUESTION_TYPES } from '../src/types.js';
+import { loadConfig, isEnabled } from '../src/jev-config.js';
 
-// Regex to identify control/critical files
-const CONTROL_FILE_REGEX = /(auth|role|permission|policy|guard|rule|access|payment|billing|session)/i;
+// Regex to identify control/critical files (config-overridable).
+const DEFAULT_CONTROL_REGEX = /(auth|role|permission|policy|guard|rule|access|payment|billing|session)/i;
+
+export function controlFileRegex(cfg) {
+  const pat = cfg?.hooks?.['jev-test-verifier']?.control_file_pattern;
+  if (pat) {
+    try { return new RegExp(pat, 'i'); } catch { /* fallback */ }
+  }
+  return DEFAULT_CONTROL_REGEX;
+}
 
 export function findExistingTests(rootDir = process.cwd()) {
   const testFiles = [];
@@ -57,8 +66,12 @@ async function main() {
     process.exit(0);
   }
 
+  const cfg = loadConfig();
+  if (!isEnabled(cfg, 'hooks', 'jev-test-verifier')) {
+    process.exit(0);
+  }
   const filePath = toolInput.path || toolInput.file_path || toolInput.TargetFile || '';
-  if (!CONTROL_FILE_REGEX.test(filePath)) {
+  if (!controlFileRegex(cfg).test(filePath)) {
     // Not a control domain file -> exit cleanly
     process.exit(0);
   }
