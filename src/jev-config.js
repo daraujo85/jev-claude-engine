@@ -11,6 +11,13 @@ export const DEFAULT_CONFIG = {
   jev: {
     api_key: ''
   },
+  router: {
+    base_url: 'http://localhost:20128',
+    api_key: '',
+    model_profiler: true,
+    combo_suggester: true,
+    task_router: true
+  },
   pricing: {
     price_per_million_input: 0.04,
     initial_balance_usd: 5.0

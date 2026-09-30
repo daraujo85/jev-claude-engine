@@ -110,6 +110,32 @@ If a violation is detected with confidence ≥ 80–85%, the hook prints a forma
 
 Skills are invoked explicitly (as slash commands or via CLI) and give the agent a fast, deterministic answer before it does expensive generative work.
 
+#### `/jev-model-router` — 9Router model profiling, combos & task routing
+
+Classifies **all** models exposed by a 9Router gateway with JEV System One
+and routes work to the best one. Reads a **model catalog** (`src/model-catalog.js`)
+with cost (USD/M), latency and published benchmarks (HumanEval/MMLU/GPQA) per
+model, so decisions weight **cost/benefit** — not just capability:
+
+1. **List** — real models + combos from `GET /v1/models`.
+2. **Profile** — JEV picks the best task for each model and scores its
+   cost/benefit (1–10), seeing capacity, cost, latency and benchmarks.
+3. **Suggest combos** — group by task, order by score, build a failover
+   chain (`primary → failover[]`) so when a model hits its rate limit the
+   next one takes over.
+4. **Route** — given a task, JEV chooses the best combo.
+
+```bash
+node skills/jev-model-router/jev-model-router.js                    # profile + combos
+node skills/jev-model-router/jev-model-router.js --list             # real models/combos
+node skills/jev-model-router/jev-model-router.js --task "refatorar auth e testes"
+node skills/jev-model-router/jev-model-router.js --json             # machine-readable
+```
+
+Connect any 9Router from the dashboard **Settings → 9Router** (base URL +
+API key, stored in `~/.jev/config.json`), and toggle the features:
+model profiler, combo suggester, task router.
+
 #### `/jev-discover` — Hybrid Discovery Pipeline
 
 **What it adds:** A 4-stage pipeline before Claude reads any code:

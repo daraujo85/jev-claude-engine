@@ -443,6 +443,10 @@ export function createDashboardHtml(initialData, projectDir) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>
         Guardrails
       </a>
+      <a href="#" class="nav-item" data-view="router" onclick="showView('router')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 8h18M7 15h3"/><circle cx="17" cy="15" r="1.6"/></svg>
+        9Router
+      </a>
       <span class="nav-label">System</span>
       <a href="#" class="nav-item" data-view="settings" onclick="showView('settings')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m10 10l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
@@ -673,6 +677,50 @@ export function createDashboardHtml(initialData, projectDir) {
         <div class="config-actions">
           <button class="btn btn-primary" onclick="saveConfig()">Save</button>
           <button class="btn" onclick="resetConfig()">Reset to defaults</button>
+          <span class="save-msg" id="save-msg"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW: 9Router (model routing) -->
+    <div id="view-router" style="display:none;">
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">9Router</div>
+          <div class="section-note">model profiling, combo suggestion and task routing · connect any 9Router</div>
+        </div>
+
+        <div class="cfg-item">
+          <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14 0 18M12 3c-3 3.5-3 14 0 18"/></svg></div>
+          <div class="cfg-meta">
+            <div class="cfg-name">Base URL</div>
+            <div class="cfg-desc">9Router gateway endpoint</div>
+          </div>
+          <div class="cfg-controls">
+            <label class="cfg-field"><input type="text" id="cfg-router-url" value="http://localhost:20128" style="width:220px"></label>
+          </div>
+        </div>
+        <div class="cfg-item">
+          <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+          <div class="cfg-meta">
+            <div class="cfg-name">API key</div>
+            <div class="cfg-desc">gateway token · masked in the UI</div>
+          </div>
+          <div class="cfg-controls">
+            <label class="cfg-field"><input type="text" id="cfg-router-key" placeholder="sk-..." style="width:220px" autocomplete="off" spellcheck="false"></label>
+            <button class="btn" type="button" onclick="toggleRouterKey()">Reveal</button>
+          </div>
+        </div>
+
+        <div class="section-head" style="margin-top:22px;">
+          <div class="section-title">Features</div>
+          <div class="section-note">toggle JEV routing behaviors on/off</div>
+        </div>
+        <div id="router-features"></div>
+
+        <div class="config-actions">
+          <button class="btn btn-primary" onclick="saveConfig()">Save</button>
+          <button class="btn" onclick="testRouter()">Test connection</button>
           <span class="save-msg" id="save-msg"></span>
         </div>
       </div>
@@ -1146,6 +1194,27 @@ function projectShort(p) {
         grSkills.innerHTML = '<div class="cfg-item">' + cfgItemBody('skills', 'jev-anti-regression', GUARD_AR_META, jevConfig.skills?.['jev-anti-regression']?.enabled !== false) + '</div>';
       }
 
+      // 9Router view
+      const rUrl = document.getElementById('cfg-router-url');
+      const rKey = document.getElementById('cfg-router-key');
+      if (rUrl) rUrl.value = jevConfig?.router?.base_url || 'http://localhost:20128';
+      if (rKey) { fullRouterKey = jevConfig?.router?.api_key || ''; maskRouterKeyInput(); }
+      const rf = document.getElementById('router-features');
+      if (rf) {
+        const features = [
+          ['model_profiler', 'Model profiler', 'classify every model by its best task'],
+          ['combo_suggester', 'Combo suggester', 'build optimized combos with failover chains'],
+          ['task_router', 'Task router', 'route each task to the best model/combo']
+        ];
+        rf.innerHTML = features.map(([f, name, desc]) => {
+          const on = jevConfig?.router?.[f] !== false;
+          return '<div class="cfg-item">' +
+            '<div class="cfg-meta"><div class="cfg-name">' + name + '</div><div class="cfg-desc">' + desc + '</div></div>' +
+            '<div class="cfg-controls"><label class="toggle"><input type="checkbox" data-router="' + f + '" ' + (on ? 'checked' : '') + '><span class="slider"></span></label></div>' +
+            '</div>';
+        }).join('');
+      }
+
       const price = jevConfig?.pricing?.price_per_million_input;
       const bal = jevConfig?.pricing?.initial_balance_usd;
       const p = document.getElementById('cfg-price-per-m');
@@ -1184,6 +1253,7 @@ function projectShort(p) {
       telemetry: { title: 'System telemetry', crumb: 'JEV System One · real-time decisions', refresh: true },
       config: { title: 'Hooks & Skills', crumb: 'toggle and tune JEV hooks · saved to ~/.jev/config.json', refresh: false },
       guardrails: { title: 'Guardrails', crumb: 'what JEV blocks vs. warns · saved to ~/.jev/config.json', refresh: false },
+      router: { title: '9Router', crumb: 'model routing, profiling and combos · saved to ~/.jev/config.json', refresh: false },
       settings: { title: 'Settings', crumb: 'pricing and balance · saved to ~/.jev/config.json', refresh: false }
     };
     function viewFromQuery() {
@@ -1192,7 +1262,7 @@ function projectShort(p) {
     }
     function showView(name) {
       if (!VIEWS[name]) name = 'telemetry';
-      ['telemetry', 'config', 'guardrails', 'settings'].forEach(v => {
+      ['telemetry', 'config', 'guardrails', 'router', 'settings'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
       });
       document.getElementById('page-title').innerText = VIEWS[name].title;
@@ -1235,6 +1305,16 @@ function projectShort(p) {
       if (bal) out.pricing.initial_balance_usd = Number(bal.value) || 0;
       // use the unmasked value (input may be visually masked)
       if (key) out.jev.api_key = (typeof fullApiKey === 'string' ? fullApiKey : key.value).trim();
+
+      // 9Router settings
+      const rUrl = document.getElementById('cfg-router-url');
+      const rKey = document.getElementById('cfg-router-key');
+      out.router = {};
+      if (rUrl) out.router.base_url = rUrl.value.trim();
+      if (rKey) out.router.api_key = (typeof fullRouterKey === 'string' ? fullRouterKey : rKey.value).trim();
+      document.querySelectorAll('#view-router input[data-router]').forEach(inp => {
+        out.router[inp.dataset.router] = inp.checked;
+      });
       return out;
     }
 
@@ -1265,6 +1345,50 @@ function projectShort(p) {
       const v = fullApiKey;
       if (v.length > 12) k.value = v.slice(0, 12) + '…';
       else if (v) k.value = '••••' + v.slice(-4);
+    }
+
+    let fullRouterKey = '';
+    function maskRouterKeyInput() {
+      const k = document.getElementById('cfg-router-key');
+      if (!k) return;
+      fullRouterKey = k.value || '';
+      k.dataset.revealed = '0';
+      const v = fullRouterKey;
+      if (v.length > 12) k.value = v.slice(0, 12) + '…';
+      else if (v) k.value = '••••' + v.slice(-4);
+    }
+    function toggleRouterKey() {
+      const k = document.getElementById('cfg-router-key');
+      const btn = document.querySelector('#view-router button[onclick="toggleRouterKey()"]');
+      if (!k) return;
+      if (k.dataset.revealed === '1') {
+        k.dataset.revealed = '0';
+        maskRouterKeyInput();
+        if (btn) btn.innerText = 'Reveal';
+      } else {
+        k.dataset.revealed = '1';
+        k.value = fullRouterKey || '';
+        if (btn) btn.innerText = 'Hide';
+      }
+    }
+    async function testRouter() {
+      const msg = document.getElementById('save-msg');
+      const url = document.getElementById('cfg-router-url').value.trim();
+      const key = document.getElementById('cfg-router-key') ? fullRouterKey || document.getElementById('cfg-router-key').value : '';
+      msg.innerText = 'Testing…';
+      try {
+        const res = await fetch(url.replace(/\/+$/, '') + '/v1/models', {
+          headers: { Authorization: 'Bearer ' + key }
+        });
+        if (!res.ok) { msg.className = 'save-msg err'; msg.innerText = 'HTTP ' + res.status; return; }
+        const data = await res.json();
+        const n = (data?.data || []).length;
+        msg.className = 'save-msg';
+        msg.innerText = 'OK — ' + n + ' models';
+      } catch (e) {
+        msg.className = 'save-msg err';
+        msg.innerText = 'Connection failed: ' + (e.message || e);
+      }
     }
 
     async function saveConfig() {

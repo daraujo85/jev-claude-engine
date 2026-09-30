@@ -12,6 +12,8 @@ JEV_SKILLS=(
   jev-browser-test
   jev-discover
   jev-explore
+  jev-fanout
+  jev-model-router
   jev-plan-evaluator
   jev-review
 )
