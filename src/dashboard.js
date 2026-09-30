@@ -123,8 +123,9 @@ export function createDashboardHtml(initialData, projectDir) {
     .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
 
     /* ---- KPI ---- */
-    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 26px; }
-    @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+    .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 26px; }
+    @media (max-width: 1200px) { .kpis { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 800px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
     .kpi {
       background: var(--surface);
       border: 1px solid var(--border); border-radius: 10px;
@@ -181,13 +182,20 @@ export function createDashboardHtml(initialData, projectDir) {
     .card {
       background: var(--surface);
       border: 1px solid var(--border); border-radius: 10px;
-      padding: 16px 18px;
+      padding: 16px 18px 18px;
+      transition: border-color .15s, transform .15s;
     }
-    .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-    .card-title { font-weight: 600; font-size: 13px; }
-    .card-count { font-size: 11px; color: var(--accent); background: var(--accent-dim); padding: 2px 9px; border-radius: 999px; font-variant-numeric: tabular-nums; }
-    .card-stats { display: flex; gap: 18px; font-size: 12px; color: var(--muted); }
-    .card-stats .stat strong { display: block; color: var(--fg); font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; margin-bottom: 1px; }
+    .card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+    .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .card-title { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+    .card-title .dot { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
+    .card-count { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .card-bar { height: 4px; border-radius: 2px; background: var(--surface-2); margin: 12px 0 14px; overflow: hidden; }
+    .card-bar .fill { height: 100%; border-radius: 2px; }
+    .card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .stat { min-width: 0; }
+    .stat .k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+    .stat strong { display: block; color: var(--fg); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* ---- Table ---- */
     .table-wrap {
@@ -293,18 +301,10 @@ export function createDashboardHtml(initialData, projectDir) {
         <div class="value" id="val-decisions">...</div>
         <div class="sub">avg latency <span class="cmp" id="val-latency">...</span></div>
       </div>
-    </div>
-
-    <div class="section" style="margin-top:-10px; margin-bottom:26px;">
-      <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
-        <div class="card">
-          <div class="card-head"><span class="card-title">JEV cost</span><span class="card-count">real</span></div>
-          <div class="card-stats">
-            <div class="stat">Spent<strong id="val-jevcost">...</strong></div>
-            <div class="stat">Input<strong id="val-jevtokens">...</strong></div>
-            <div class="stat">Saved vs<strong id="val-jevsaved">...</strong></div>
-          </div>
-        </div>
+      <div class="kpi bar-good">
+        <div class="label">JEV spend</div>
+        <div class="value" id="val-jevcost">...</div>
+        <div class="sub">real cost · TypeSafe</div>
       </div>
     </div>
 
@@ -383,24 +383,33 @@ export function createDashboardHtml(initialData, projectDir) {
       document.getElementById('val-decisions').innerText = (data.total_decisions || 0).toLocaleString('pt-BR');
       document.getElementById('val-latency').innerText = (data.avg_jev_latency_ms || 0) + ' ms';
       document.getElementById('val-jevcost').innerText = '$' + (data.total_jev_cost_usd || 0).toFixed(4);
-      document.getElementById('val-jevtokens').innerText = (data.total_jev_input_tokens || 0).toLocaleString('pt-BR');
-      document.getElementById('val-jevsaved').innerText = '$' + (data.total_cost_saved_usd || 0).toFixed(2);
 
       const bd = document.getElementById('breakdown-container');
       bd.innerHTML = '';
       const feats = data.by_feature || {};
-      for (const [feat, info] of Object.entries(feats)) {
+      const featsArr = Object.entries(feats).sort((a, b) => b[1].tokens_saved - a[1].tokens_saved);
+      const maxTokens = Math.max(...featsArr.map(([, f]) => f.tokens_saved), 1);
+      const FEAT_COLORS = ['#7c8cf8', '#4cc3d9', '#3fb68b', '#d9a441', '#e2665a', '#a78bfa', '#38bdf8', '#4ade80'];
+      const colorFor = s => {
+        let h = 0;
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+        return FEAT_COLORS[h % FEAT_COLORS.length];
+      };
+      for (const [feat, info] of featsArr) {
+        const color = colorFor(feat);
+        const pct = Math.max(4, Math.round((info.tokens_saved / maxTokens) * 100));
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = \`
           <div class="card-head">
-            <span class="card-title">\${feat}</span>
-            <span class="card-count">\${info.count} decisões</span>
+            <span class="card-title"><span class="dot" style="background:\${color}"></span>\${feat}</span>
+            <span class="card-count">\${info.count} calls</span>
           </div>
+          <div class="card-bar"><div class="fill" style="width:\${pct}%; background:\${color}"></div></div>
           <div class="card-stats">
-            <div class="stat">Tokens<strong>\${info.tokens_saved.toLocaleString('pt-BR')}</strong></div>
-            <div class="stat">Média<strong>\${info.avg_latency_ms} ms</strong></div>
-            <div class="stat">Tempo<strong>\${info.time_saved_sec} s</strong></div>
+            <div class="stat"><div class="k">Tokens</div><strong>\${fmtShort(info.tokens_saved)}</strong></div>
+            <div class="stat"><div class="k">Avg</div><strong>\${info.avg_latency_ms} ms</strong></div>
+            <div class="stat"><div class="k">Time</div><strong>\${fmtSec(info.time_saved_sec)}</strong></div>
           </div>
         \`;
         bd.appendChild(card);
@@ -421,6 +430,74 @@ export function createDashboardHtml(initialData, projectDir) {
         \`;
         tbody.appendChild(tr);
       }
+
+      renderLatencyChart(entries);
+      renderFeatureBars(data.by_feature || {});
+    }
+
+    // --- Latency line/area chart (inline SVG, last 50 decisions) ---
+    function renderLatencyChart(entries) {
+      const svg = document.getElementById('chart-latency');
+      const W = 400, H = 190, pad = 8;
+      const pts = (entries || []).slice(0, 50).reverse();
+      const vals = pts.map(e => e.jev_latency_ms || 0);
+      if (vals.length === 0) { svg.innerHTML = ''; return; }
+
+      const max = Math.max(...vals, 1);
+      const min = Math.min(...vals, 0);
+      const range = Math.max(max - min, 1);
+      const x = i => pts.length === 1 ? W / 2 : pad + (i * (W - 2 * pad)) / (pts.length - 1);
+      const y = v => H - pad - ((v - min) / range) * (H - 2 * pad);
+
+      const points = vals.map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
+      const area = 'M' + x(0) + ',' + (H - pad) + ' L' + vals.map((v, i) => x(i) + ',' + y(v)).join(' L') + ' L' + x(vals.length - 1) + ',' + (H - pad) + ' Z';
+
+      let grid = '';
+      for (let g = 0; g <= 3; g++) {
+        const gy = pad + (g * (H - 2 * pad)) / 3;
+        grid += '<line class="grid-line" x1="' + pad + '" y1="' + gy + '" x2="' + (W - pad) + '" y2="' + gy + '"/>';
+      }
+
+      svg.innerHTML = grid +
+        '<polyline fill="none" stroke="#7c8cf8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="' + points + '"/>' +
+        '<polygon fill="rgba(124,140,248,0.12)" points="' + area + '"/>' +
+        '<text class="axis-label" x="' + (W - pad) + '" y="' + (H - pad - 4) + '" text-anchor="end">' + max + 'ms max</text>' +
+        '<text class="axis-label" x="' + (W - pad) + '" y="' + (pad + 10) + '" text-anchor="end">last ' + pts.length + ' decisions</text>';
+    }
+
+    // --- Horizontal bars: tokens saved per feature (top 6) ---
+    function renderFeatureBars(byFeature) {
+      const svg = document.getElementById('chart-features');
+      const W = 400, H = 190, pad = 8, barH = 16, gap = 18;
+      const feats = Object.entries(byFeature || {})
+        .sort((a, b) => b[1].tokens_saved - a[1].tokens_saved)
+        .slice(0, 6);
+      if (feats.length === 0) { svg.innerHTML = ''; return; }
+
+      const max = Math.max(...feats.map(([, f]) => f.tokens_saved), 1);
+      const labelW = 96, barMax = W - pad - labelW - pad;
+      let out = '';
+      feats.forEach(([name, f], i) => {
+        const y = pad + i * gap + 4;
+        const w = Math.max(4, (f.tokens_saved / max) * barMax);
+        out += '<text class="axis-label" x="' + pad + '" y="' + (y + barH - 4) + '">' + truncate(name, 14) + '</text>' +
+          '<rect class="bar" x="' + (pad + labelW) + '" y="' + y + '" width="' + w.toFixed(1) + '" height="' + barH + '" rx="3"/>';
+      });
+      svg.innerHTML = out +
+        '<text class="axis-label" x="' + (W - pad) + '" y="' + (H - pad - 2) + '" text-anchor="end">' + fmtShort(max) + ' tokens</text>';
+    }
+
+    function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+    function fmtShort(v) {
+      if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return (v / 1e3).toFixed(0) + 'k';
+      return String(v);
+    }
+    function fmtSec(s) {
+      s = s || 0;
+      if (s >= 3600) return (s / 3600).toFixed(1) + 'h';
+      if (s >= 60) return Math.round(s / 60) + 'm';
+      return s + 's';
     }
 
     async function fetchData() {
