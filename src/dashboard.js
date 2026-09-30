@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readTelemetrySummary } from './telemetry.js';
 import { loadConfig, saveConfig, resetConfig, DEFAULT_CONFIG } from './jev-config.js';
+import { listModels, profileModels, suggestCombos, routerFeatures } from './model-router.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // AI-generated logo (Gemini, see docs/jev-logo.png) served as /logo.png.
@@ -718,6 +719,16 @@ export function createDashboardHtml(initialData, projectDir) {
         </div>
         <div id="router-features"></div>
 
+        <div class="section-head" style="margin-top:22px;">
+          <div class="section-title">Model profiler</div>
+          <div class="section-note">classify every model and build combos with failover</div>
+        </div>
+        <div class="config-actions">
+          <button class="btn btn-primary" onclick="runProfiler()">Run profiler</button>
+          <span class="save-msg" id="profiler-msg"></span>
+        </div>
+        <div id="router-combos" style="margin-top:14px;"></div>
+
         <div class="config-actions">
           <button class="btn btn-primary" onclick="saveConfig()">Save</button>
           <button class="btn" onclick="testRouter()">Test connection</button>
@@ -1198,7 +1209,8 @@ function projectShort(p) {
       const rUrl = document.getElementById('cfg-router-url');
       const rKey = document.getElementById('cfg-router-key');
       if (rUrl) rUrl.value = jevConfig?.router?.base_url || 'http://localhost:20128';
-      if (rKey) { fullRouterKey = jevConfig?.router?.api_key || ''; maskRouterKeyInput(); }
+      if (rKey) { fullRouterKey = jevConfig?.router?.api_key || ''; maskRouterKeyInput(); syncRouterKeyOnInput(); }
+      renderRouterCombos(jevConfig?.router?.suggested_combos || []);
       const rf = document.getElementById('router-features');
       if (rf) {
         const features = [
@@ -1311,7 +1323,10 @@ function projectShort(p) {
       const rKey = document.getElementById('cfg-router-key');
       out.router = {};
       if (rUrl) out.router.base_url = rUrl.value.trim();
-      if (rKey) out.router.api_key = (typeof fullRouterKey === 'string' ? fullRouterKey : rKey.value).trim();
+      if (rKey) {
+        // prefer the typed value (Revealed or freshly typed) over the masked snapshot
+        out.router.api_key = (rKey.dataset.revealed === '1' ? rKey.value : (fullRouterKey || rKey.value)).trim();
+      }
       document.querySelectorAll('#view-router input[data-router]').forEach(inp => {
         out.router[inp.dataset.router] = inp.checked;
       });
@@ -1357,6 +1372,18 @@ function projectShort(p) {
       if (v.length > 12) k.value = v.slice(0, 12) + '…';
       else if (v) k.value = '••••' + v.slice(-4);
     }
+    function syncRouterKeyOnInput() {
+      const k = document.getElementById('cfg-router-key');
+      if (!k) return;
+      // Keep the full key in sync when the user types (even masked),
+      // so Save persists the real value, not the masked snapshot.
+      k.addEventListener('input', () => {
+        const typed = k.value;
+        if (typed && typed.includes('…')) return; // still showing masked snapshot
+        if (typed === '••••' + fullRouterKey.slice(-4)) return; // partial mask, skip
+        fullRouterKey = typed;
+      });
+    }
     function toggleRouterKey() {
       const k = document.getElementById('cfg-router-key');
       const btn = document.querySelector('#view-router button[onclick="toggleRouterKey()"]');
@@ -1389,6 +1416,43 @@ function projectShort(p) {
         msg.className = 'save-msg err';
         msg.innerText = 'Connection failed: ' + (e.message || e);
       }
+    }
+    async function runProfiler() {
+      const msg = document.getElementById('profiler-msg');
+      const box = document.getElementById('router-combos');
+      if (msg) { msg.className = 'save-msg'; msg.innerText = 'Profiling…'; }
+      if (box) box.innerHTML = '<div class="cfg-desc">rodando JEV sobre o catálogo…</div>';
+      try {
+        const res = await fetch('/api/router/profile', { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) {
+          if (msg) { msg.className = 'save-msg err'; msg.innerText = data.error || 'failed'; }
+          return;
+        }
+        if (msg) msg.innerText = 'OK — ' + data.count + ' modelos, ' + data.combos.length + ' combos';
+        renderRouterCombos(data.combos);
+      } catch (e) {
+        if (msg) { msg.className = 'save-msg err'; msg.innerText = String(e.message || e); }
+      }
+    }
+    function renderRouterCombos(combos) {
+      const box = document.getElementById('router-combos');
+      if (!box) return;
+      if (!combos || combos.length === 0) {
+        box.innerHTML = '<div class="cfg-desc">nenhum combo sugerido ainda — rode o profiler.</div>';
+        return;
+      }
+      box.innerHTML = '<div class="group-label" style="margin:8px 0 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;">Suggested combos</div>' +
+        combos.map(c => {
+          const models = [c.primary, ...(c.failover || [])];
+          return '<div class="cfg-item">' +
+            '<div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 8h18M7 15h3"/><circle cx="17" cy="15" r="1.6"/></svg></div>' +
+            '<div class="cfg-meta"><div class="cfg-name">' + c.name + '</div>' +
+            '<div class="cfg-desc">' + c.task.replace(/_/g, ' ') + '</div></div>' +
+            '<div class="cfg-controls" style="flex-direction:column;align-items:flex-end;gap:4px;">' +
+            models.map((m, i) => '<span class="s-result' + (i === 0 ? ' good' : '') + '" style="font-size:11px">' + (i === 0 ? '▶ ' : '↳ ') + escapeHtml(m) + '</span>').join('') +
+            '</div></div>';
+        }).join('');
     }
 
     async function saveConfig() {
@@ -1431,7 +1495,7 @@ export function startDashboardServer(options = {}) {
   const port = options.port || 3838;
   const projectDir = options.projectDir || process.cwd();
 
-  const server = http.createServer((req, res) => {
+  const server = http.createServer(async (req, res) => {
     const urlPath = (req.url || '').split('?')[0];
 
     if (urlPath === '/api/stats') {
@@ -1469,6 +1533,33 @@ export function startDashboardServer(options = {}) {
       const merged = resetConfig();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, config: merged }));
+      return;
+    }
+
+    // Run the JEV model profiler on the 9Router catalog and return the
+    // suggested combos (persisted to config as router.suggested_combos).
+    if (urlPath === '/api/router/profile' && req.method === 'POST') {
+      try {
+        const feats = routerFeatures();
+        if (!feats.modelProfiler) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'model_profiler disabled in config' }));
+          return;
+        }
+        const { real } = await listModels();
+        const profiles = await profileModels(real);
+        const combos = suggestCombos(profiles);
+        // persist suggested combos
+        const cfg = loadConfig();
+        cfg.router = cfg.router || {};
+        cfg.router.suggested_combos = combos;
+        saveConfig(cfg);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, profiles, combos, count: real.length }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
       return;
     }
 

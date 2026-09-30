@@ -132,9 +132,13 @@ node skills/jev-model-router/jev-model-router.js --task "refatorar auth e testes
 node skills/jev-model-router/jev-model-router.js --json             # machine-readable
 ```
 
-Connect any 9Router from the dashboard **Settings → 9Router** (base URL +
-API key, stored in `~/.jev/config.json`), and toggle the features:
-model profiler, combo suggester, task router.
+Connect any 9Router from the dashboard **9Router** view (base URL + API key,
+stored in `~/.jev/config.json`) and toggle the features: model profiler,
+combo suggester, task router. The view has a **Run profiler** button that
+classifies every model live, builds the combos and lists them with their
+failover chain:
+
+![JEV 9Router view](docs/jev-router.png)
 
 #### `/jev-discover` — Hybrid Discovery Pipeline
 
