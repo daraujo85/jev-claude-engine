@@ -65,4 +65,13 @@ if [ -d "$HOME/.gemini" ]; then
   installed=$((installed + 1))
 fi
 
-echo "JEV sincronizado: $installed arquivos em ${#TARGETS[@]} harnesses + plugins/hooks."
+# Claude Code statusline (JEV status in the footer): copy to ~/.claude/hooks.
+CLAUDE_HOOKS="$HOME/.claude/hooks"
+if [ -f "$PROJECT_DIR/hooks/statusline/jev-statusline.sh" ]; then
+  mkdir -p "$CLAUDE_HOOKS"
+  cp "$PROJECT_DIR/hooks/statusline/jev-statusline.sh" "$CLAUDE_HOOKS/jarvis-statusline.sh"
+  chmod +x "$CLAUDE_HOOKS/jarvis-statusline.sh"
+  installed=$((installed + 1))
+fi
+
+echo "JEV sincronizado: $installed arquivos em ${#TARGETS[@]} harnesses + plugins/hooks/statusline."
