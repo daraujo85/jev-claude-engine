@@ -130,8 +130,8 @@ export function createDashboardHtml(initialData, projectDir) {
     }
 
     /* ---- KPI ---- */
-    .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 26px; }
-    @media (max-width: 1200px) { .kpis { grid-template-columns: repeat(3, 1fr); } }
+    .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 26px; }
+    @media (max-width: 1400px) { .kpis { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 800px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
     .kpi {
       background: var(--surface);
@@ -366,6 +366,40 @@ export function createDashboardHtml(initialData, projectDir) {
     .config-actions .btn-primary:hover { filter: brightness(1.1); background: var(--good); border-color: var(--good); }
     .save-msg { font-size: 11.5px; color: var(--good); min-height: 16px; align-self: center; }
     .save-msg.err { color: var(--bad); }
+
+    /* ---- Mobile (<= 900px) ---- */
+    @media (max-width: 900px) {
+      body { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static; height: auto; flex-direction: row;
+        align-items: center; gap: 10px; padding: 10px 14px;
+        border-right: none; border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+      }
+      .brand { padding: 0 4px 0 0; border-bottom: none; margin-bottom: 0; flex-shrink: 0; }
+      .brand-mark { width: 30px; height: 30px; }
+      .brand-sub { display: none; }
+      .nav { flex-direction: row; gap: 4px; flex: 1; }
+      .nav-label { display: none; }
+      .nav-item { padding: 7px 9px; font-size: 12px; white-space: nowrap; }
+      .nav-item svg { display: none; }
+      .sidebar-foot { display: none; }
+      main { padding: 0 14px 32px; }
+      .topbar { padding: 14px 0 12px; margin-bottom: 18px; }
+      .topbar h1 { font-size: 16px; }
+      .topbar .crumb { font-size: 10.5px; }
+      .kpis { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .charts-row { grid-template-columns: 1fr; }
+      .section-title { font-size: 13.5px; }
+      .cfg-item { flex-wrap: wrap; padding: 12px 14px; }
+      .cfg-controls { justify-content: flex-start; gap: 10px; }
+      .cfg-info::after { width: 220px; left: auto; right: 0; }
+      .stream { max-height: 260px; }
+      .stream-item { padding: 8px 12px; font-size: 11px; flex-wrap: wrap; gap: 6px; }
+      .stream-item .s-text { white-space: normal; overflow: visible; flex-basis: 100%; }
+      footer { flex-direction: column; gap: 8px; align-items: flex-start; }
+      .config-actions { flex-wrap: wrap; }
+    }
   </style>
 </head>
 <body>
@@ -392,7 +426,7 @@ export function createDashboardHtml(initialData, projectDir) {
         Guardrails
       </a>
       <span class="nav-label">System</span>
-      <a href="#" class="nav-item" onclick="showView('telemetry')">
+      <a href="#" class="nav-item" data-view="settings" onclick="showView('settings')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m10 10l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
         Settings
       </a>
@@ -442,6 +476,11 @@ export function createDashboardHtml(initialData, projectDir) {
           <div class="label">JEV spend</div>
           <div class="value" id="val-jevcost">...</div>
           <div class="sub">real cost · TypeSafe</div>
+        </div>
+        <div class="kpi bar-cyan">
+          <div class="label">JEV balance</div>
+          <div class="value" id="val-jevbalance">...</div>
+          <div class="sub">remaining of initial credit</div>
         </div>
       </div>
 
@@ -544,6 +583,53 @@ export function createDashboardHtml(initialData, projectDir) {
       </div>
     </div>
 
+    <!-- VIEW: Settings (pricing & balance) -->
+    <div id="view-settings" style="display:none;">
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Pricing &amp; balance</div>
+          <div class="section-note">cost per 1M tokens + initial credit · remaining computed live</div>
+        </div>
+
+        <div class="cfg-item">
+          <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M8.5 9h5a2 2 0 0 1 0 4h-3a2 2 0 0 0 0 4h5"/></svg></div>
+          <div class="cfg-meta">
+            <div class="cfg-name">Price per million input</div>
+            <div class="cfg-desc">USD · default $0.04 (JEV System One). Adjust if the rate changes.</div>
+          </div>
+          <div class="cfg-controls">
+            <label class="cfg-field">USD / M<input type="number" step="0.001" min="0" id="cfg-price-per-m" value="0.04"></label>
+          </div>
+        </div>
+        <div class="cfg-item">
+          <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M12 8v8M8.5 10h4a1.8 1.8 0 0 1 0 3.6H9.5a1.8 1.8 0 0 0 0 3.6h4"/></svg></div>
+          <div class="cfg-meta">
+            <div class="cfg-name">Initial balance</div>
+            <div class="cfg-desc">USD · credit you started with (e.g. $5). Used to compute remaining balance.</div>
+          </div>
+          <div class="cfg-controls">
+            <label class="cfg-field">USD<input type="number" step="0.01" min="0" id="cfg-initial-balance" value="5"></label>
+          </div>
+        </div>
+        <div class="cfg-item">
+          <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></div>
+          <div class="cfg-meta">
+            <div class="cfg-name">Remaining balance</div>
+            <div class="cfg-desc">initial − real JEV spend so far</div>
+          </div>
+          <div class="cfg-controls">
+            <label class="cfg-field" id="cfg-remaining-balance" style="font-size:13px; color:var(--good); font-weight:600;">…</label>
+          </div>
+        </div>
+
+        <div class="config-actions">
+          <button class="btn btn-primary" onclick="saveConfig()">Save</button>
+          <button class="btn" onclick="resetConfig()">Reset to defaults</button>
+          <span class="save-msg" id="save-msg"></span>
+        </div>
+      </div>
+    </div>
+
     <footer>
       <div>Lightweight on-demand server — Ctrl+C in the terminal stops it and frees all resources.</div>
       <div class="links">
@@ -571,6 +657,13 @@ export function createDashboardHtml(initialData, projectDir) {
       document.getElementById('val-decisions').innerText = (data.total_decisions || 0).toLocaleString('pt-BR');
       document.getElementById('val-latency').innerText = (data.avg_jev_latency_ms || 0) + ' ms';
       document.getElementById('val-jevcost').innerText = '$' + (data.total_jev_cost_usd || 0).toFixed(4);
+      const balEl = document.getElementById('val-jevbalance');
+      if (balEl) {
+        const initial = Number(jevConfig?.pricing?.initial_balance_usd) || 5;
+        const remaining = initial - (data.total_jev_cost_usd || 0);
+        balEl.innerText = (remaining < 0 ? '-$' + Math.abs(remaining).toFixed(2) : '$' + remaining.toFixed(2));
+        balEl.style.color = remaining < 0 ? 'var(--bad)' : 'var(--good)';
+      }
 
       const bd = document.getElementById('breakdown-container');
       bd.innerHTML = '';
@@ -624,6 +717,7 @@ export function createDashboardHtml(initialData, projectDir) {
       renderProjectBars('chart-projects-req', data.by_project || {}, 'count');
       renderProjectBars('chart-projects-tok', data.by_project || {}, 'tokens_saved');
       renderStream(entries);
+      updateRemainingBalance();
     }
 
     // --- Live input stream (newest shimmer, older faded) ---
@@ -947,6 +1041,25 @@ function projectShort(p) {
       const skills = document.getElementById('config-skills');
       hooks.innerHTML = Object.entries(HOOK_META).map(([n, m]) => cfgItemHTML('hooks', n, m, jevConfig.hooks?.[n]?.enabled !== false)).join('');
       skills.innerHTML = Object.entries(SKILL_META).map(([n, m]) => cfgItemHTML('skills', n, m, jevConfig.skills?.[n]?.enabled !== false)).join('');
+
+      const price = jevConfig?.pricing?.price_per_million_input;
+      const bal = jevConfig?.pricing?.initial_balance_usd;
+      const p = document.getElementById('cfg-price-per-m');
+      const b = document.getElementById('cfg-initial-balance');
+      if (p) p.value = price !== undefined ? price : 0.04;
+      if (b) b.value = bal !== undefined ? bal : 5;
+      updateRemainingBalance();
+    }
+
+    function updateRemainingBalance() {
+      const el = document.getElementById('cfg-remaining-balance');
+      if (!el) return;
+      const initial = Number(document.getElementById('cfg-initial-balance').value) || 0;
+      const spent = currentData.total_jev_cost_usd || 0;
+      const remaining = initial - spent;
+      el.innerText = '$' + remaining.toFixed(4);
+      el.style.color = remaining < 0 ? 'var(--bad)' : 'var(--good)';
+      if (remaining < 0) el.innerText = 'exceeded by $' + Math.abs(remaining).toFixed(4);
     }
 
     async function initConfig() {
@@ -960,7 +1073,8 @@ function projectShort(p) {
     // SPA view switching via sidebar, synced to ?view=<name> query param
     const VIEWS = {
       telemetry: { title: 'System telemetry', crumb: 'JEV System One · real-time decisions', refresh: true },
-      config: { title: 'Hooks & Skills', crumb: 'toggle and tune JEV hooks · saved to ~/.jev/config.json', refresh: false }
+      config: { title: 'Hooks & Skills', crumb: 'toggle and tune JEV hooks · saved to ~/.jev/config.json', refresh: false },
+      settings: { title: 'Settings', crumb: 'pricing and balance · saved to ~/.jev/config.json', refresh: false }
     };
     function viewFromQuery() {
       const p = new URLSearchParams(window.location.search).get('view');
@@ -968,9 +1082,9 @@ function projectShort(p) {
     }
     function showView(name) {
       if (!VIEWS[name]) name = 'telemetry';
-      const showTelemetry = name === 'telemetry';
-      document.getElementById('view-telemetry').style.display = showTelemetry ? '' : 'none';
-      document.getElementById('view-config').style.display = showTelemetry ? 'none' : '';
+      ['telemetry', 'config', 'settings'].forEach(v => {
+        document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
+      });
       document.getElementById('page-title').innerText = VIEWS[name].title;
       document.getElementById('page-crumb').innerText = VIEWS[name].crumb;
       document.getElementById('refresh-btn').style.display = VIEWS[name].refresh ? '' : 'none';
@@ -987,12 +1101,16 @@ function projectShort(p) {
     window.addEventListener('popstate', () => showView(viewFromQuery()));
 
     function collectConfig() {
-      const out = { hooks: {}, skills: {} };
+      const out = { hooks: {}, skills: {}, pricing: {} };
       document.querySelectorAll('[data-kind][data-name]').forEach(inp => {
         const kind = inp.dataset.kind, name = inp.dataset.name, field = inp.dataset.field;
         out[kind][name] = out[kind][name] || {};
         out[kind][name][field] = inp.type === 'checkbox' ? inp.checked : Number(inp.value);
       });
+      const price = document.getElementById('cfg-price-per-m');
+      const bal = document.getElementById('cfg-initial-balance');
+      if (price) out.pricing.price_per_million_input = Number(price.value) || 0.04;
+      if (bal) out.pricing.initial_balance_usd = Number(bal.value) || 0;
       return out;
     }
 
