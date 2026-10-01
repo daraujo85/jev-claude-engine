@@ -291,27 +291,27 @@ A zero-dependency Node.js HTTP server that renders live telemetry (decisions, to
 
 ## Installation
 
-Requires **Node.js ≥ 18** and `browser-harness` (for the browser feature).
+Requires **Node.js ≥ 18**.
 
 ```bash
 # 1. Clone
 git clone https://github.com/<you>/jev-claude-engine.git
 cd jev-claude-engine
 
-# 2. Install hooks + env keys into ~/.claude/settings.json
+# 2. Guided setup — checks dependencies and installs what's missing:
+#    Node.js → Docker → 9Router (sobe via docker-compose em ~/.9router)
+#    → API key JEV/Typesafe (orienta a criar conta, ~$5/mês) → hooks
+#    → statusline (⚡JEV on no rodapé) → skills → subagents
 node scripts/install-hooks.js
 
-# 3. (Optional) Symlink the skills so any agent can load them
-ln -s "$PWD/skills/jev-discover"         ~/.claude/skills/jev-discover
-ln -s "$PWD/skills/jev-explore"          ~/.claude/skills/jev-explore
-ln -s "$PWD/skills/jev-review"           ~/.claude/skills/jev-review
-ln -s "$PWD/skills/jev-plan-evaluator"   ~/.claude/skills/jev-plan-evaluator
-ln -s "$PWD/skills/jev-anti-regression"  ~/.claude/skills/jev-anti-regression
-ln -s "$PWD/skills/jev-browser-test"     ~/.claude/skills/jev-browser-test
-
-# 4. (Optional) Global CLI
-npm link
+# Modo diagnóstico (sem instalar nada — útil em CI / máquina remota):
+node scripts/install-hooks.js --check
 ```
+
+O setup é interativo: cada dependência é verificada e, se faltar, ele orienta
+com links e instala/sobe o que dá (Docker Desktop no macOS, 9router via
+`docker compose up -d`). No final mostra o resumo do checklist — a máquina
+sai pronta, igual à do Diego.
 
 ---
 
