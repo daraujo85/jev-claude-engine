@@ -8,7 +8,8 @@ import {
   buildScenarios,
   getDeliveryDiff,
   renderReport,
-  saveReport
+  saveReport,
+  parseElicitedReport
 } from '../skills/business-acceptance-review/acceptance.js';
 
 test('extractObligations: extrai obrigações de um ticket', () => {
@@ -75,4 +76,37 @@ test('saveReport: grava relatório em ~/.jev/reports e retorna caminho', () => {
   assert.ok(p.endsWith('.md'));
   const content = fs.readFileSync(p, 'utf-8');
   assert.ok(content.includes('relatório de teste'));
+});
+
+test('parseElicitedReport: extrai obrigações e cenários do requirements.md', () => {
+  const req = `# REQUISITOS — Estudajunto
+
+## 2. Requisitos (obrigações verificáveis)
+
+| ID | Requisito | Tipo |
+|----|-----------|------|
+| R1 | permitir que dois responsáveis acompanhem o mesmo aluno via convite | ✅ explícito |
+| R2 | talvez por e-mail ou SMS | 🟡 hipótese/ambíguo |
+
+## 3. Critérios de aceite / Cenários BDD
+
+**CR1** — principal (requisito R1)
+- Dado o cenário combinado
+- Quando o segundo responsável aceita um convite válido
+- Então acessa o perfil
+
+**CR2** — alternativa (requisito R1)
+- Dado convite expirado
+- Quando utilizado
+- Então vínculo recusado com motivo
+`;
+  const { rules, scenarios } = parseElicitedReport(req);
+  assert.equal(rules.length, 2);
+  assert.equal(rules[0].id, 'R1');
+  assert.equal(rules[0].type, 'explicit');
+  assert.equal(rules[1].type, 'hypothesis');
+  assert.equal(scenarios.length, 2);
+  assert.equal(scenarios[0].id, 'CR1');
+  assert.equal(scenarios[0].requirement, 'R1');
+  assert.ok(scenarios[0].when.includes('aceita um convite'));
 });

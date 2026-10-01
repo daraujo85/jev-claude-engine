@@ -247,8 +247,18 @@ async function main() {
     process.exit(1);
   }
 
-  const rules = extractObligations(context);
-  const scenarios = buildScenarios(rules);
+  let rules = extractObligations(context);
+  let scenarios = buildScenarios(rules);
+
+  // Se o contexto é um requirements.md eliciado, beber das obrigações e
+  // cenários JÁ acordados (a fonte da verdade da validação) em vez de
+  // re-extrair do texto bruto.
+  const elicited = parseElicitedReport(context);
+  if (elicited.rules.length) {
+    rules = elicited.rules;
+    scenarios = elicited.scenarios.length ? elicited.scenarios : buildScenarios(rules);
+  }
+
   const gaps = detectGaps(context);
   const diff = getDeliveryDiff(base);
   const files = getChangedFiles();
@@ -272,6 +282,40 @@ export function saveReport(report) {
     console.error(`Não foi possível salvar o relatório: ${err.message}`);
     return null;
   }
+}
+
+// Detecta requirements.md gerado pela requirements-elicitation e devolve
+// obrigações + cenários já estruturados (a fonte de validação acordada).
+// Formato da seção 2: "| R1 | obrigação | ✅ explícito |"
+// Formato da seção 3: "**CR1** — principal (requisito R1)\n- Dado ...\n- Quando ...\n- Então ..."
+export function parseElicitedReport(report) {
+  const rules = [];
+  const scenarios = [];
+  const seen = new Set();
+
+  const ruleRow = /^\|\s*(R\d+)\s*\|\s*(.+?)\s*\|\s*(✅ explícito|🟡 hipótese\/ambíguo|explícito|hipótese|hypothesis|explicit)\s*\|/i;
+  for (const line of String(report || '').split(/\r?\n/)) {
+    const m = line.match(ruleRow);
+    if (m && !seen.has(m[1])) {
+      seen.add(m[1]);
+      rules.push({ id: m[1], rule: m[2].trim(), source: m[2].trim(), type: m[3].includes('hipótese') || m[3].includes('hypothesis') ? 'hypothesis' : 'explicit' });
+    }
+  }
+
+  const scenHeader = /^\*\*(CR[\w-]+)\*\*\s*—\s*(.+?)\s*\(requisito\s*(R\d+)\)/;
+  const lines = String(report || '').split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(scenHeader);
+    if (!m) continue;
+    const given = lines[i + 1] || '';
+    const when = lines[i + 2] || '';
+    const then = lines[i + 3] || '';
+    scenarios.push({
+      id: m[1], requirement: m[3], type: m[2].trim(),
+      given: given.replace(/^- /, ''), when: when.replace(/^- /, ''), then: then.replace(/^- /, '')
+    });
+  }
+  return { rules, scenarios };
 }
 
 if (process.argv[1] && process.argv[1].endsWith('acceptance.js')) {
