@@ -1,12 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   extractObligations,
   extractRules,
   detectGaps,
   buildScenarios,
   getDeliveryDiff,
-  renderReport
+  renderReport,
+  saveReport
 } from '../skills/business-acceptance-review/acceptance.js';
 
 test('extractObligations: extrai obrigações de um ticket', () => {
@@ -64,4 +66,13 @@ test('renderReport: gera matriz de rastreabilidade e parecer de negócio', () =>
 
 test('getDeliveryDiff: nunca lança', () => {
   assert.doesNotThrow(() => getDeliveryDiff('', '/tmp/nao-existe'));
+});
+
+test('saveReport: grava relatório em ~/.jev/reports e retorna caminho', () => {
+  const p = saveReport('# teste\nrelatório de teste');
+  assert.ok(p, 'deveria retornar caminho');
+  assert.ok(p.includes('.jev/reports'));
+  assert.ok(p.endsWith('.md'));
+  const content = fs.readFileSync(p, 'utf-8');
+  assert.ok(content.includes('relatório de teste'));
 });

@@ -358,7 +358,7 @@ async function installStatusline() {
 
 async function linkSkills() {
   console.log(step('7. Skills JEV'));
-  const skills = ['jev-discover', 'jev-explore', 'jev-review', 'jev-plan-evaluator', 'jev-anti-regression', 'jev-browser-test', 'jev-vision', 'business-acceptance-review'];
+  const skills = ['jev-discover', 'jev-explore', 'jev-review', 'jev-plan-evaluator', 'jev-anti-regression', 'jev-browser-test', 'jev-vision', 'business-acceptance-review', 'requirements-elicitation'];
   let n = 0;
   for (const s of skills) {
     const src = path.join(PROJECT_DIR, 'skills', s);

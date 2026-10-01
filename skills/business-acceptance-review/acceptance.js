@@ -10,6 +10,8 @@
 
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 // Obligation markers (PT-BR + EN).
 const RULE_RE =
@@ -251,7 +253,25 @@ async function main() {
   const diff = getDeliveryDiff(base);
   const files = getChangedFiles();
 
-  process.stdout.write(renderReport(context, rules, diff, files, scenarios, gaps));
+  const report = renderReport(context, rules, diff, files, scenarios, gaps);
+  process.stdout.write(report);
+
+  const saved = saveReport(report);
+  if (saved) console.error(`\nRelatório salvo em: ${saved}`);
+}
+
+export function saveReport(report) {
+  try {
+    const dir = path.join(os.homedir(), '.jev', 'reports');
+    fs.mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const file = path.join(dir, `acceptance-${stamp}.md`);
+    fs.writeFileSync(file, report, 'utf-8');
+    return file;
+  } catch (err) {
+    console.error(`Não foi possível salvar o relatório: ${err.message}`);
+    return null;
+  }
 }
 
 if (process.argv[1] && process.argv[1].endsWith('acceptance.js')) {
