@@ -72,6 +72,7 @@ async function run() {
   await installStatusline();
   await linkSkills();
   await generateSubagents();
+  await healthCheck();
   await finalize();
 
   rl.close();
@@ -382,6 +383,19 @@ async function generateSubagents() {
   results.push(['subagents', r.status === 0]);
 }
 
+async function healthCheck() {
+  console.log(step('9. Health dos combos do 9Router'));
+  const script = path.join(PROJECT_DIR, 'scripts', '9router-health.js');
+  if (!fs.existsSync(script)) { console.log(warn('9router-health.js não encontrado — pulando.')); return; }
+  if (!(await pingRouter())) {
+    console.log(warn('9Router não respondeu — pulando health check.'));
+    results.push(['health', false]);
+    return;
+  }
+  const r = spawnSync('node', [script], { encoding: 'utf8', stdio: ['ignore', 'inherit', 'inherit'] });
+  results.push(['health', r.status === 0]);
+}
+
 /* ------------------------------------------------------------------ */
 /* Helpers / output                                                    */
 /* ------------------------------------------------------------------ */
@@ -398,7 +412,8 @@ function summary() {
   console.log(`\n${C.bld}${C.mag}=== RESUMO DO SETUP ===${C.reset}`);
   const labels = {
     node: 'Node.js', docker: 'Docker', router: '9Router :20128', key: 'API key JEV',
-    hooks: 'Hooks JEV', statusline: 'Statusline', skills: 'Skills', subagents: 'Subagents'
+    hooks: 'Hooks JEV', statusline: 'Statusline', skills: 'Skills', subagents: 'Subagents',
+    health: 'Health combos'
   };
   for (const [k, v] of results) {
     const ok = v === true || (typeof v === 'number' && v > 0);
@@ -421,6 +436,7 @@ async function checkOnly() {
   results.push(['statusline', !!s?.statusLine]);
   results.push(['skills', fs.existsSync(path.join(SKILLS_DIR, 'jev-discover'))]);
   results.push(['subagents', fs.existsSync(path.join(CLAUDE_DIR, 'agents', 'jev-writing-code.md'))]);
+  results.push(['health', await pingRouter()]);
   summary();
 }
 
