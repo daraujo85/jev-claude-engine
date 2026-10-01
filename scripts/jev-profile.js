@@ -12,12 +12,12 @@
  * profile tuned for LLM consumption.
  */
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
-import { join, extname, basename, dirname, sep } from 'node:path';
+import { join, extname, basename, dirname, sep, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname as pathDirname } from 'node:path';
 
 const __dirname = pathDirname(fileURLToPath(import.meta.url));
-const ROOT = process.argv[2] || process.cwd();
+const ROOT = resolve(process.argv[2] || process.cwd());
 const AS_JSON = process.argv.includes('--json');
 
 const MAX_DIR_DEPTH = 12;
