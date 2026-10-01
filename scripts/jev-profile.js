@@ -28,7 +28,10 @@ function walk(dir, depth = 0, acc = []) {
   let entries = [];
   try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return acc; }
   for (const e of entries) {
-    if (e.name.startsWith('.') || e.name === 'node_modules' || e.name === 'vendor' || e.name === 'dist' || e.name === 'build') continue;
+    if (e.name.startsWith('.') || e.name === 'node_modules' || e.name === 'vendor' || e.name === 'dist' || e.name === 'build' ||
+        e.name === '.venv' || e.name === 'graphify-out' || e.name === '__pycache__' || e.name === '.tox' ||
+        e.name === '.mypy_cache' || e.name === '.dart_tool' || e.name === 'Pods' || e.name === '.next' ||
+        e.name === '.nuxt' || e.name === 'coverage' || e.name === 'target' || e.name === '.gradle') continue;
     const full = join(dir, e.name);
     if (e.isDirectory()) {
       // Java/Maven/Gradle: inside src/main/java (or src/test/java) reset the
@@ -61,8 +64,13 @@ function readIfExists(p) {
 function detectStack(root) {
   const stack = [];
   const markers = [];
-  if (existsSync(join(root, 'package.json'))) {
-    const pkg = readIfExists(join(root, 'package.json'));
+  // find the root-most package.json (project root or a single sub-folder
+  // like backend/), so monorepos/vanilla-front+node-back still detect stack.
+  const pkgJsonCandidates = [join(root, 'package.json'),
+    ...walk(root).filter(f => /[\\/]package\.json$/.test(f)).slice(0, 2)];
+  const pkgPath = pkgJsonCandidates.find(existsSync);
+  if (pkgPath) {
+    const pkg = readIfExists(pkgPath);
     try {
       const j = JSON.parse(pkg);
       const deps = { ...(j.dependencies || {}), ...(j.devDependencies || {}) };
@@ -92,8 +100,8 @@ function detectStack(root) {
       stack.push(`node ${j.engines?.node ? 'v' + j.engines.node : ''}`.trim());
     } catch {}
   }
-  for (const f of ['composer.json', 'pom.xml', 'build.gradle', 'Cargo.toml', 'go.mod', 'requirements.txt', 'pyproject.toml', 'Gemfile', '*.csproj', '*.sln']) {
-    if (existsSync(join(root, f)) || walk(root).some(p => basename(p).endsWith(f.replace('*', '')))) {
+  for (const f of ['composer.json', 'pom.xml', 'build.gradle', 'Cargo.toml', 'go.mod', 'requirements.txt', 'pyproject.toml', 'Gemfile', '*.csproj', '*.sln', 'pubspec.yaml']) {
+    if (existsSync(join(root, f)) || walk(root).some(p => basename(p) === f.replace('*', '') || basename(p).endsWith(f.replace('*', '')))) {
       if (f.includes('csproj') || f.includes('sln')) stack.push('.NET/C#');
       else if (f === 'composer.json') stack.push('PHP/Composer');
       else if (f === 'pom.xml') stack.push('Java/Maven');
@@ -101,6 +109,11 @@ function detectStack(root) {
       else if (f === 'go.mod') stack.push('Go');
       else if (f.includes('requirements') || f === 'pyproject.toml') stack.push('Python');
       else if (f === 'Gemfile') stack.push('Ruby');
+      else if (f === 'pubspec.yaml') {
+        stack.push('Flutter');
+        const pub = readIfExists(join(root, f));
+        if (pub && /sdk:\s*'>=?\d/.test(pub)) stack.push('Dart');
+      }
     }
   }
   return { stack: [...new Set(stack)], markers };
@@ -155,7 +168,7 @@ function detectPatterns(root, files) {
 }
 
 function detectTests(root, files) {
-  const testFiles = files.filter(f => /\.(test|spec)\./.test(basename(f)) || /Test\.java$/.test(f) || basename(f).includes('_test') || basename(f).includes('Tests'));
+  const testFiles = files.filter(f => /\.(test|spec)\./.test(basename(f)) || /Test\.java$/.test(f) || /^test_|_test\.|_tests\./.test(basename(f)) || basename(f).includes('Tests') || /[\\/](tests?|__tests__)[\\/]/.test(f));
   const dirs = new Set(testFiles.map(f => dirname(f).split(sep).pop()));
   const javaTests = testFiles.filter(f => f.endsWith('.java'));
   const jsTests = testFiles.filter(f => /\.(ts|tsx|js|jsx)$/.test(f));
