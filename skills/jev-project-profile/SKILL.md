@@ -1,6 +1,6 @@
 ---
 name: jev-project-profile
-description: Scans a repository and generates .claude/jev-profile.md capturing its architecture (layers, patterns), code style and front-end design system. Use when asked "qual a arquitetura desse projeto", "como é o code style", "gera o perfil do projeto", "cria o jev-profile", or when a subagent should follow the project's conventions. ALSO use whenever the conversation contains a DIVERGENCE/CRITICISM about the expected pattern — code comments policy, code language (English/Portuguese), naming, folder structure, design tokens, branch/PR/commit flow, architecture layers — or when the user states a project convention: interview the user to confirm the rule, write it to .claude/jev-rules.md and regenerate the profile (petrified rule, subagents follow it). Auto-runs on SessionStart when the profile is missing.
+description: Generates .claude/jev-profile.md capturing a repository's architecture (layers, patterns), code style and front-end design system. Uses a hybrid flow: run the deterministic scan (scripts/jev-profile.js), then COMPLEMENT it as the LLM — read manifests (package.json/pom.xml/go.mod/requirements.txt/*.csproj/pubspec.yaml), query the Graphify knowledge graph, and inspect entrypoints to detect the real stack, libraries and patterns the regex scan missed, and remove false positives. Use when asked "qual a arquitetura desse projeto", "como é o code style", "gera o perfil do projeto", "cria o jev-profile", or when a subagent should follow the project's conventions. ALSO use whenever the conversation contains a DIVERGENCE/CRITICISM about the expected pattern — code comments policy, code language (English/Portuguese), naming, folder structure, design tokens, branch/PR/commit flow, architecture layers — or when the user states a project convention: interview the user to confirm the rule, write it to .claude/jev-rules.md and regenerate the profile (petrified rule, subagents follow it). Auto-runs on SessionStart when the profile is missing.
 ---
 
 # JEV Project Profile
@@ -35,12 +35,46 @@ node skills/jev-project-profile/jev-project-profile.js [dir] --check
 
 | Eixo | Sinais |
 |---|---|
-| **Stack** | package.json, composer.json, *.csproj, go.mod, Cargo.toml, requirements.txt, Gemfile... |
+| **Stack** | package.json, composer.json, *.csproj, go.mod, Cargo.toml, requirements.txt, Gemfile, pubspec.yaml... |
 | **Camadas** | controllers, services, repositories, domain, use-cases, commands, queries, routes, middlewares, tests... |
 | **Padrões** | CQRS/Command-Query, Repository, Service layer, MVC, DI, ORM, event-driven... |
-| **Testes** | node:test, Jest/Vitest, pytest, xUnit/NUnit (auto-detectado) |
+| **Testes** | node:test, Jest/Vitest, pytest, xUnit/NUnit, JUnit/TestNG (auto-detectado) |
 | **Code style** | tabs/espaços, ponto-e-vírgula, camelCase/snake_case, tamanho de linha |
-| **Design system** | CSS variables (tokens), lib UI (Tailwind/MUI/shadcn), componentes, ícones |
+| **Design system** | CSS variables (tokens), lib UI (Tailwind/MUI/shadcn/PrimeVue), componentes, ícones |
+
+## Mapeamento híbrido (determinístico + LLM + Graphify)
+
+O scan determinístico (`scripts/jev-profile.js`) é o **ponto de partida** —
+rápido e sem custo de LLM — mas **não é 100%**: a quantidade de tecnologias
+é grande demais pra cobrir tudo por regex. O perfil só fica completo quando
+você (o LLM) **complementa** o resultado:
+
+1. **Rode o scan**: `node skills/jev-project-profile/jev-project-profile.js .`
+   → gera o `.claude/jev-profile.md` base + imprime o resumo no console.
+2. **Rode `--json`** pra ver o que o scan detectou:
+   `node skills/jev-project-profile/jev-project-profile.js . --json`
+3. **Varredura complementar — você faz**:
+   - **Manifests**: leia `package.json`, `pom.xml`, `build.gradle`, `go.mod`,
+     `Cargo.toml`, `requirements.txt`/`pyproject.toml`, `*.csproj`, `composer.json`,
+     `pubspec.yaml` — e liste as **bibliotecas/starters relevantes** que faltam
+     no stack (ex: Spring Boot, PrimeVue, Pinia, Tailwind, vue-router, EF Core,
+     FastAPI, Django, Laravel, Riverpod...).
+   - **Graphify**: se existir `graphify-out/graph.json`, rode
+     `graphify query "quais as principais tecnologias e bibliotecas deste projeto?"`
+     e `graphify explain "<módulo>"` pra confirmar camadas, padrões e
+     dependências reais.
+   - **Arquivos-chave**: leia o entrypoint (`main.py`, `Program.cs`,
+     `server.ts`, `lib/main.dart`, `src/main.tsx`...) e 2-3 arquivos de cada
+     camada pra confirmar o padrão (CQRS, Repository, Service, etc.).
+4. **Corrija o `.claude/jev-profile.md`**: acrescente o que o scan perdeu
+   (bibliotecas, camadas, padrões) e **remova falsos positivos** (ex:
+   tecnologia que o scan casou por substring mas não existe no projeto).
+5. Se o scan errou de forma **recorrente** (mesma regra em vários projetos),
+   anote o gap — o engine determinístico pode ser corrigido depois; não
+   perca tempo caçando regex a cada projeto.
+
+**Regra**: o scan é o rascunho; o LLM é quem valida e completa. O arquivo
+final reflete a realidade do projeto, não a heurística.
 
 ## Hook automático (SessionStart)
 
