@@ -20,7 +20,7 @@ const __dirname = pathDirname(fileURLToPath(import.meta.url));
 const ROOT = process.argv[2] || process.cwd();
 const AS_JSON = process.argv.includes('--json');
 
-const MAX_DIR_DEPTH = 4;
+const MAX_DIR_DEPTH = 8;
 const MAX_SOURCE_SAMPLES = 40;
 
 function walk(dir, depth = 0, acc = []) {
@@ -30,10 +30,28 @@ function walk(dir, depth = 0, acc = []) {
   for (const e of entries) {
     if (e.name.startsWith('.') || e.name === 'node_modules' || e.name === 'vendor' || e.name === 'dist' || e.name === 'build') continue;
     const full = join(dir, e.name);
-    if (e.isDirectory()) walk(full, depth + 1, acc);
+    if (e.isDirectory()) {
+      // Java/Maven/Gradle: inside src/main/java (or src/test/java) reset the
+      // depth so deep package trees (br/com/x/domain/...) are fully walked.
+      const rel = full.slice(dir.length).replace(/^[\\/]/, '');
+      const isJavaRoot = /^src[\\/](main|test)[\\/]java$/.test(rel);
+      walk(full, isJavaRoot ? 0 : depth + 1, acc);
+    }
     else acc.push(full);
   }
   return acc;
+}
+
+// Sample source files spread across directories, not just the first N in
+// walk order (which tends to cluster on one folder).
+function sampleFiles(files, n) {
+  if (files.length <= n) return files;
+  const out = [];
+  const bucket = Math.max(1, Math.floor(files.length / n));
+  for (let i = 0; i < files.length && out.length < n; i += bucket) {
+    out.push(files[i]);
+  }
+  return out.length < n ? files.slice(0, n) : out;
 }
 
 function readIfExists(p) {
@@ -78,14 +96,27 @@ function detectStack(root) {
   return { stack: [...new Set(stack)], markers };
 }
 
+const LAYER_NAMES = ['domain', 'application', 'app', 'infrastructure', 'infra', 'presentation', 'controllers', 'api', 'services', 'repositories', 'models', 'entities', 'config', 'core', 'shared', 'features', 'modules', 'ui', 'views', 'components', 'interfaces', 'contracts', 'migrations', 'tests', 'test', 'specs', 'ports', 'adapters', 'use-cases', 'handlers', 'queries', 'commands', 'routes', 'middlewares'];
+
 function detectLayers(root, files) {
   const layers = new Set();
   for (const f of files) {
     const rel = f.startsWith(root) ? f.slice(root.length).split(sep).filter(Boolean) : f.split(sep).filter(Boolean);
     for (const seg of rel) {
+      // exact package/dir segment match — not substring containment
       const s = seg.toLowerCase();
-      if (['domain', 'application', 'app', 'infrastructure', 'infra', 'presentation', 'controllers', 'api', 'services', 'repositories', 'models', 'entities', 'config', 'core', 'shared', 'features', 'modules', 'ui', 'views', 'components', 'interfaces', 'contracts', 'migrations', 'tests', 'test', 'specs', 'ports', 'adapters', 'use-cases', 'handlers', 'queries', 'commands', 'routes', 'middlewares'].includes(s)) {
+      if (LAYER_NAMES.includes(s)) {
         layers.add(seg);
+      }
+    }
+    // Java: the declared package (e.g. `package br.com.x.domain;`) names the
+    // layer exactly; use its final segment.
+    if (f.endsWith('.java')) {
+      const src = readIfExists(f);
+      const m = src && src.match(/^\s*package\s+([\w.]+)\s*;/m);
+      if (m) {
+        const pkgSeg = m[1].split('.').pop().toLowerCase();
+        if (LAYER_NAMES.includes(pkgSeg)) layers.add(m[1].split('.').pop());
       }
     }
   }
@@ -94,7 +125,7 @@ function detectLayers(root, files) {
 
 function detectPatterns(root, files) {
   const patterns = [];
-  const allSrc = files.slice(0, MAX_SOURCE_SAMPLES).map(readIfExists).join('\n');
+  const allSrc = sampleFiles(files, MAX_SOURCE_SAMPLES).map(readIfExists).join('\n');
   const has = (re) => allSrc ? new RegExp(re, 'i').test(allSrc) : false;
   if (has('class.*Controller|@Controller|Controller')) patterns.push('MVC/Controllers');
   if (has('class \\w*Repository|interface.*Repository|extends Repository|@Repository')) patterns.push('Repository pattern');
@@ -111,21 +142,28 @@ function detectPatterns(root, files) {
 }
 
 function detectTests(root, files) {
-  const testFiles = files.filter(f => /\.(test|spec)\./.test(basename(f)) || basename(f).includes('_test') || basename(f).includes('Tests'));
+  const testFiles = files.filter(f => /\.(test|spec)\./.test(basename(f)) || /Test\.java$/.test(f) || basename(f).includes('_test') || basename(f).includes('Tests'));
   const dirs = new Set(testFiles.map(f => dirname(f).split(sep).pop()));
+  const javaTests = testFiles.filter(f => f.endsWith('.java'));
+  const jsTests = testFiles.filter(f => /\.(ts|tsx|js|jsx)$/.test(f));
   let framework = '';
-  const sample = testFiles.slice(0, 3).map(readIfExists).join('\n');
-  if (/node:test|node:assert/.test(sample)) framework = 'node:test';
-  else if (/@Test/.test(sample)) framework = 'JUnit/xUnit-style annotations';
-  else if (/\[Fact\]|\[Theory\]/.test(sample)) framework = 'xUnit/NUnit';
-  else if (/def test_|class Test/.test(sample)) framework = 'pytest/unittest';
-  else if (/it\(|describe\(|test\(/.test(sample)) framework = 'Jest/Vitest/Mocha (describe/it)';
-  else framework = 'unclear';
+  if (javaTests.length > 0 && javaTests.length >= jsTests.length) {
+    // majority Java → JUnit/TestNG
+    const sample = javaTests.slice(0, 4).map(readIfExists).join('\n');
+    framework = /org\.testng|@Test/.test(sample) ? 'JUnit/TestNG' : 'JUnit/TestNG';
+  } else {
+    const sample = testFiles.slice(0, 4).map(readIfExists).join('\n');
+    if (/node:test|node:assert/.test(sample)) framework = 'node:test';
+    else if (/\[Fact\]|\[Theory\]/.test(sample)) framework = 'xUnit/NUnit';
+    else if (/def test_|class Test/.test(sample)) framework = 'pytest/unittest';
+    else if (/it\(|describe\(|test\(/.test(sample)) framework = 'Jest/Vitest/Mocha (describe/it)';
+    else framework = 'unclear';
+  }
   return { count: testFiles.length, dirs: [...dirs].slice(0, 5), framework };
 }
 
 function detectStyle(root, files) {
-  const src = files.filter(f => /\.(ts|tsx|js|jsx|py|cs|java|go|rb|php)$/.test(f)).slice(0, MAX_SOURCE_SAMPLES);
+  const src = sampleFiles(files.filter(f => /\.(ts|tsx|js|jsx|py|cs|java|go|rb|php)$/.test(f)), MAX_SOURCE_SAMPLES);
   const samples = src.map(readIfExists).filter(Boolean).join('\n');
   if (!samples) return {};
   const lines = samples.split('\n');
@@ -183,13 +221,15 @@ function detectDesignSystem(root, files) {
   }
   if (/@layer|@tailwind\b/.test(cssSamples)) ds.uiLib.push('Tailwind (css)');
 
-  // Reusable components defined in the codebase.
+  // Reusable components defined in the codebase (excluding test/spec files).
   const compDirs = ['components', 'ui', 'widgets'];
   const compSet = new Set();
   for (const f of files) {
     const parts = f.split(sep);
     if (parts.some(p => compDirs.includes(p.toLowerCase())) && /\.(tsx|jsx|vue|ts|js)$/.test(f)) {
-      compSet.add(basename(f).replace(/\.(tsx|jsx|vue|ts|js)$/, ''));
+      const base = basename(f);
+      if (/\.(test|spec)\.|\.test\.|\.spec\./.test(base)) continue;
+      compSet.add(base.replace(/\.(tsx|jsx|vue|ts|js)$/, ''));
     }
   }
   if (compSet.size) {
@@ -223,6 +263,18 @@ function buildProfile(root) {
   const style = detectStyle(root, files);
   const designSystem = detectDesignSystem(root, files);
   return { root, stack: stack.stack, markers: stack.markers, layers, patterns, tests, style, designSystem };
+}
+
+// Read team rules from .claude/jev-rules.md (manual, non-detectable
+// conventions: branch flow, comments policy, PR rules...) and embed them
+// into the generated profile so subagents follow them too.
+function readProjectRules(root) {
+  const rulesPath = join(root, '.claude', 'jev-rules.md');
+  const raw = readIfExists(rulesPath);
+  if (!raw || !raw.trim()) return '';
+  // strip any leading frontmatter
+  const body = raw.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
+  return body;
 }
 
 const profile = buildProfile(ROOT);
@@ -277,12 +329,19 @@ ${profile.designSystem.hasDesignSystem
       : '')
   : '_no design tokens/component library detected — for UI work, follow the closest existing styling (colors, spacing, fonts) seen in the code._'}
 
+## Project rules (team conventions)
+${(() => {
+    const rules = readProjectRules(ROOT);
+    if (rules) return rules;
+    return '_none declared in .claude/jev-rules.md — if the team has branch/PR/comment conventions, add them there._';
+  })()}
+
 ## Rule
 Match the existing structure and style. Do not introduce a new folder layout,
 a different test framework, or a different formatting style. For front-end:
 use the design tokens, UI library and existing components above — never invent
 colors, spacing or icons that are not already in the codebase. Extend what is
-already here.
+already here. Follow the project rules above.
 `;
   const outPath = join(ROOT, '.claude', 'jev-profile.md');
   try { const { mkdirSync } = await import('node:fs'); mkdirSync(dirname(outPath), { recursive: true }); } catch {}
