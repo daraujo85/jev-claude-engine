@@ -69,6 +69,11 @@ você (o LLM) **complementa** o resultado:
 4. **Corrija o `.claude/jev-profile.md`**: acrescente o que o scan perdeu
    (bibliotecas, camadas, padrões) e **remova falsos positivos** (ex:
    tecnologia que o scan casou por substring mas não existe no projeto).
+   Para o complemento manual **sobreviver à regeneração**, envolva-o nos
+   delimitadores `<!-- jev-manual:start -->` ... `<!-- jev-manual:end -->`.
+   Tudo que estiver dentro desses marcadores é preservado quando o scan roda
+   de novo; o resto do arquivo é sobrescrito. (Regras do time vão no
+   `jev-rules.md`, que também é preservado.)
 5. Se o scan errou de forma **recorrente** (mesma regra em vários projetos),
    anote o gap — o engine determinístico pode ser corrigido depois; não
    perca tempo caçando regex a cada projeto.

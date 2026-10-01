@@ -309,6 +309,23 @@ function buildProfile(root) {
   return { root, stack: stack.stack, markers: stack.markers, layers, patterns, tests, style, designSystem };
 }
 
+// Preserve hand-written sections from a previous profile. Blocks wrapped in
+// <!-- jev-manual:start --> ... <!-- jev-manual:end --> survive regeneration
+// (e.g. the LLM "Verified complement" with libraries/patterns the scan missed).
+function readManualSections(root) {
+  const p = join(root, '.claude', 'jev-profile.md');
+  const prev = readIfExists(p);
+  if (!prev) return '';
+  const re = /<!-- jev-manual:start -->([\s\S]*?)<!-- jev-manual:end -->/g;
+  const blocks = [];
+  let m;
+  while ((m = re.exec(prev)) !== null) {
+    const body = m[1].trim();
+    if (body) blocks.push('<!-- jev-manual:start -->\n' + body + '\n<!-- jev-manual:end -->');
+  }
+  return blocks.length ? '\n\n' + blocks.join('\n\n') : '';
+}
+
 // Read team rules from .claude/jev-rules.md (manual, non-detectable
 // conventions: branch flow, comments policy, PR rules...) and embed them
 // into the generated profile so subagents follow them too.
@@ -386,6 +403,7 @@ a different test framework, or a different formatting style. For front-end:
 use the design tokens, UI library and existing components above — never invent
 colors, spacing or icons that are not already in the codebase. Extend what is
 already here. Follow the project rules above.
+${readManualSections(ROOT)}
 `;
   const outPath = join(ROOT, '.claude', 'jev-profile.md');
   try { const { mkdirSync } = await import('node:fs'); mkdirSync(dirname(outPath), { recursive: true }); } catch {}
