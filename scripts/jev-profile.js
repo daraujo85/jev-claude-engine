@@ -20,7 +20,7 @@ const __dirname = pathDirname(fileURLToPath(import.meta.url));
 const ROOT = process.argv[2] || process.cwd();
 const AS_JSON = process.argv.includes('--json');
 
-const MAX_DIR_DEPTH = 8;
+const MAX_DIR_DEPTH = 12;
 const MAX_SOURCE_SAMPLES = 40;
 
 function walk(dir, depth = 0, acc = []) {
@@ -66,7 +66,17 @@ function detectStack(root) {
     try {
       const j = JSON.parse(pkg);
       const deps = { ...(j.dependencies || {}), ...(j.devDependencies || {}) };
-      const has = (k) => Object.keys(deps).some(d => d.includes(k));
+      // exact package match: dep name is either exactly k, the unscoped part,
+      // or the scope itself. Substring matching caused false positives
+      // (lucide-vue-next → "next", postcss-nesting → "express").
+      const has = (k) => Object.keys(deps).some(d => {
+        if (d === k) return true;
+        if (d.startsWith('@')) {
+          const [scope, name] = d.split('/');
+          return scope === '@' + k || name === k;
+        }
+        return false;
+      });
       if (has('react')) stack.push('React');
       if (has('next')) stack.push('Next.js');
       if (has('vue')) stack.push('Vue');
@@ -127,12 +137,15 @@ function detectPatterns(root, files) {
   const patterns = [];
   const allSrc = sampleFiles(files, MAX_SOURCE_SAMPLES).map(readIfExists).join('\n');
   const has = (re) => allSrc ? new RegExp(re, 'i').test(allSrc) : false;
-  if (has('class.*Controller|@Controller|Controller')) patterns.push('MVC/Controllers');
+  // Controller: require a word-boundary class/interface/annotation name.
+  // Bare "Controller" matched AbortController in JS — false positive.
+  if (has('class \\w*Controller\\b|@Controller\\b|interface \\w*Controller\\b')) patterns.push('MVC/Controllers');
   if (has('class \\w*Repository|interface.*Repository|extends Repository|@Repository')) patterns.push('Repository pattern');
   if (has('class \\w*Service|interface.*Service|@Service')) patterns.push('Service layer');
   if (has('CommandHandler|ICommandHandler|IMediator|CQRS|MediatR|CommandBus|QueryBus|bus\\.dispatch|bus\\.ask|use-cases/commands|use-cases/queries')) patterns.push('CQRS/Command-Query');
   if (has('abstract class|@abstract|Interface segregation')) patterns.push('OOP/abstractions');
-  if (has('useState|useEffect|useReducer|@Component|extends Component')) patterns.push('React hooks/components');
+  // React only via hooks/extends — @Component is Spring/Java, not React.
+  if (has('useState|useEffect|useReducer|extends Component|React\\.Component|createElement\\(')) patterns.push('React hooks/components');
   if (has('@Entity|@Table|@Column|\\.Model\\(')) patterns.push('ORM/Entities');
   if (has('@ApiOperation|@swagger|swagger|OpenAPI')) patterns.push('OpenAPI/Swagger');
   if (has('docker-compose|Dockerfile')) patterns.push('Docker');
