@@ -12,8 +12,8 @@ const CLAUDE_DIR = path.join(os.homedir(), '.claude');
 const SETTINGS_FILE = path.join(CLAUDE_DIR, 'settings.json');
 const SKILLS_DIR = path.join(CLAUDE_DIR, 'skills');
 
-const PROJECT_DIR = '/Users/diegoaraujo/Documents/projects/jev-claude-engine';
-const API_KEY = 'apikey_2222c29a1c601b834735b4aee35077bca6c1_8723740f5d7753ba3bb77ce2169978fff66cfb8ae484650d9e899b510679bc63';
+const PROJECT_DIR = process.env.JEV_PROJECT_DIR || '/Users/diegoaraujo/Documents/projects/jev-claude-engine';
+const API_KEY = process.env.JEV_API_KEY || 'apikey_2222c29a1c601b834735b4aee35077bca6c1_8723740f5d7753ba3bb77ce2169978fff66cfb8ae484650d9e899b510679bc63';
 
 function install() {
   console.log('🔧 [JEV INSTALLER]: Configurando hooks e skills no Claude Code...');
