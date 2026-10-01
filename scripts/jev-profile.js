@@ -89,6 +89,10 @@ function detectStack(root) {
       if (has('next')) stack.push('Next.js');
       if (has('vue')) stack.push('Vue');
       if (has('angular')) stack.push('Angular');
+      if (has('primevue')) stack.push('PrimeVue');
+      if (has('pinia')) stack.push('Pinia');
+      if (has('tailwindcss')) stack.push('Tailwind CSS');
+      if (has('vue-router') || has('react-router')) stack.push('Router');
       if (has('express') || has('fastify') || has('nest')) stack.push('Node/Express');
       if (has('typescript') || has('ts-node')) stack.push('TypeScript');
       if (has('jest')) stack.push('Jest');
@@ -104,7 +108,14 @@ function detectStack(root) {
     if (existsSync(join(root, f)) || walk(root).some(p => basename(p) === f.replace('*', '') || basename(p).endsWith(f.replace('*', '')))) {
       if (f.includes('csproj') || f.includes('sln')) stack.push('.NET/C#');
       else if (f === 'composer.json') stack.push('PHP/Composer');
-      else if (f === 'pom.xml') stack.push('Java/Maven');
+      else if (f === 'pom.xml') {
+        stack.push('Java/Maven');
+        const pomCandidates = [join(root, f), ...walk(root).filter(p => basename(p) === 'pom.xml').slice(0, 2)];
+        const pomPath = pomCandidates.find(existsSync);
+        const pom = pomPath && readIfExists(pomPath);
+        if (pom && /spring-boot-starter|spring-boot-maven-plugin/.test(pom)) stack.push('Spring Boot');
+        else if (pom && /org\.springframework/.test(pom)) stack.push('Spring');
+      }
       else if (f === 'Cargo.toml') stack.push('Rust');
       else if (f === 'go.mod') stack.push('Go');
       else if (f.includes('requirements') || f === 'pyproject.toml') stack.push('Python');
@@ -157,8 +168,9 @@ function detectPatterns(root, files) {
   if (has('class \\w*Service|interface.*Service|@Service')) patterns.push('Service layer');
   if (has('CommandHandler|ICommandHandler|IMediator|CQRS|MediatR|CommandBus|QueryBus|bus\\.dispatch|bus\\.ask|use-cases/commands|use-cases/queries')) patterns.push('CQRS/Command-Query');
   if (has('abstract class|@abstract|Interface segregation')) patterns.push('OOP/abstractions');
-  // React only via hooks/extends — @Component is Spring/Java, not React.
-  if (has('useState|useEffect|useReducer|extends Component|React\\.Component|createElement\\(')) patterns.push('React hooks/components');
+  // React only when react is actually imported (useX() matches Vue composables too).
+  if (has('from [\'"]react[\'"]|require\\([\'"]react[\'"]\\)|import [\'"]react[\'"]|extends React\\.Component')) patterns.push('React hooks/components');
+  else if (has('React\\.Component')) patterns.push('React-style components');
   if (has('@Entity|@Table|@Column|\\.Model\\(')) patterns.push('ORM/Entities');
   if (has('@ApiOperation|@swagger|swagger|OpenAPI')) patterns.push('OpenAPI/Swagger');
   if (has('docker-compose|Dockerfile')) patterns.push('Docker');
@@ -168,7 +180,13 @@ function detectPatterns(root, files) {
 }
 
 function detectTests(root, files) {
-  const testFiles = files.filter(f => /\.(test|spec)\./.test(basename(f)) || /Test\.java$/.test(f) || /^test_|_test\.|_tests\./.test(basename(f)) || basename(f).includes('Tests') || /[\\/](tests?|__tests__)[\\/]/.test(f));
+  const CODE_EXT = /\.(java|ts|tsx|js|jsx|py|go|cs|kt|rb|php)$/;
+  const testFiles = files.filter(f => {
+    const base = basename(f);
+    const inTestDir = /[\\/](tests?|__tests__)[\\/]/.test(f);
+    if (inTestDir) return CODE_EXT.test(f); // count only code files in test dirs (no .sql/.json fixtures)
+    return /\.(test|spec)\./.test(base) || /Test\.java$/.test(base) || /^test_|_test\.|_tests\./.test(base) || base.includes('Tests');
+  });
   const dirs = new Set(testFiles.map(f => dirname(f).split(sep).pop()));
   const javaTests = testFiles.filter(f => f.endsWith('.java'));
   const jsTests = testFiles.filter(f => /\.(ts|tsx|js|jsx)$/.test(f));
