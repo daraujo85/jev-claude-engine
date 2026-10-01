@@ -1,6 +1,6 @@
 ---
 name: jev-project-profile
-description: Scans a repository and generates .claude/jev-profile.md capturing its architecture (layers, patterns), code style and front-end design system. Use when asked "qual a arquitetura desse projeto", "como é o code style", "gera o perfil do projeto", "cria o jev-profile", or when a subagent should follow the project's conventions. ALSO use when the user mentions a project convention in conversation (branch flow, "nunca commitar direto na release", "sem comentários no código", commit pattern, PR policy, required architecture) — capture it into .claude/jev-rules.md and regenerate the profile so subagents follow it. Auto-runs on SessionStart when the profile is missing.
+description: Scans a repository and generates .claude/jev-profile.md capturing its architecture (layers, patterns), code style and front-end design system. Use when asked "qual a arquitetura desse projeto", "como é o code style", "gera o perfil do projeto", "cria o jev-profile", or when a subagent should follow the project's conventions. ALSO use whenever the conversation contains a DIVERGENCE/CRITICISM about the expected pattern — code comments policy, code language (English/Portuguese), naming, folder structure, design tokens, branch/PR/commit flow, architecture layers — or when the user states a project convention: interview the user to confirm the rule, write it to .claude/jev-rules.md and regenerate the profile (petrified rule, subagents follow it). Auto-runs on SessionStart when the profile is missing.
 ---
 
 # JEV Project Profile
@@ -80,6 +80,42 @@ profile:
 
 Isso vale pra regra nova OU pra correção/refino de regra existente. Sempre
 preserve as regras já listadas.
+
+## Detecção proativa de divergência (cláusula pétrea)
+
+Qualquer sinal na conversa de que **o padrão esperado não foi seguido** — ou
+que existe um padrão ainda não registrado — é gatilho pra agir. Exemplos de
+sinais:
+
+- **Code style**: crítica a comentários ("não devia ter comentário", "faltou
+  comentário"), idioma do código ("devia estar em inglês/português"), indentação,
+  ponto-e-vírgula, nomes de variável/constante.
+- **Naming/estrutura**: crítica a nome de pasta/arquivo, organização de camadas,
+  localização de um componente/arquivo.
+- **Design system**: "essa cor não existe no projeto", "use o token certo",
+  "temos esse componente no design system".
+- **Fluxo de trabalho**: "nunca commitar direto na release", "PR deve vir de
+  branch de trabalho", "só merge via PR", padrão de commit (conventional, etc.),
+  política de testes/PR/review.
+- **Arquitetura**: "aqui usamos CQRS/DDD/camadas X", "não é assim que
+  organizamos esse domínio".
+
+**Fluxo obrigatório**:
+
+1. **Detectou** qualquer um desses sinais na conversa → pare e **entreviste o
+   usuário** (pergunta curta, 1-3 opções quando fizer sentido) pra confirmar a
+   regra e tirar a dúvida. Não assuma sozinho.
+2. **Esclarecido** (usuário confirmou a regra) → escreva no
+   `.claude/jev-rules.md` do projeto (crie se não existir, preserve as regras
+   existentes).
+3. **Regenere** o `.claude/jev-profile.md` (`node scripts/jev-profile.js .`).
+4. Se o usuário respondeu com uma **exceção/refino** ("mas em X pode") →
+   registre a regra com a exceção explícita.
+
+**Regra de ouro**: uma vez registrada, a regra vale pra sempre (cláusula
+pétrea). Os subagents `jev-*` leem o profile antes de codar — depois que a
+regra está no arquivo, o agente **não comete mais o gap**. A regra só muda se
+o usuário pedir explicitamente pra mudar.
 
 ## Notas
 
