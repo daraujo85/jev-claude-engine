@@ -23,16 +23,16 @@ export const DEFAULT_CONFIG = {
     // Map each JEV task type to a 9Router combo (must be a live combo).
     // Used by the JEV subagent router hook to pick the subagent model.
     task_combos: {
-      writing_code: 'claude-coder',
-      refactoring: 'claude-coder',
-      debugging: 'claude-coder',
-      tests: 'claude-coder',
-      planning_architecture: 'claude-tudao',
-      data_analysis: 'claude-tudao',
-      creative_writing: 'claude-tudao',
-      transcription: 'claude-tudao',
-      code_review: 'claude-tools',
-      docs: 'claude-tools'
+      writing_code: 'claude-jev-coder',
+      refactoring: 'claude-jev-refactor',
+      debugging: 'claude-jev-debug',
+      tests: 'claude-jev-tests',
+      planning_architecture: 'claude-jev-planner',
+      data_analysis: 'claude-jev-analysis',
+      creative_writing: 'claude-jev-creative',
+      transcription: 'claude-jev-transcribe',
+      code_review: 'claude-jev-review',
+      docs: 'claude-jev-docs'
     }
   },
   pricing: {
