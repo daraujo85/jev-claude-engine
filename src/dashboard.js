@@ -502,7 +502,7 @@ export function createDashboardHtml(initialData, projectDir) {
       </div>
       <div class="right">
         <span class="badge" data-i18n="onDemand">On-demand</span>
-        <span id="update-badge" class="badge badge-update" style="display:none;cursor:pointer;" data-i18n-tooltip="updateTip" title="Update available" onclick="window.open('https://github.com/daraujo85/jev-claude-engine','_blank')">⬆ update</span>
+        <span id="update-badge" class="badge badge-update" style="display:none;cursor:pointer;" data-i18n-tooltip="updateTip" title="Update available" onclick="applyUpdate()">⬆ update</span>
         <select id="lang-select" class="btn" style="margin-right:8px;cursor:pointer;" data-i18n-tooltip="langSelect" title="Language" onchange="setLang(this.value)">
           <option value="en">🇺🇸 English</option>
           <option value="pt-BR">🇧🇷 Português</option>
@@ -1441,10 +1441,32 @@ function projectShort(p) {
         const badge = document.getElementById('update-badge');
         if (badge && info && info.available) {
           badge.style.display = '';
-          badge.setAttribute('data-i18n', 'updateAvailable');
-          badge.textContent = i18nStr('updateAvailable');
+          badge.textContent = '⬆ update';
         }
       } catch (e) { /* fail-open: no badge */ }
+    }
+
+    async function applyUpdate() {
+      const badge = document.getElementById('update-badge');
+      if (!confirm('Atualizar o JEV Engine agora? (git pull + reinstall hooks)')) return;
+      badge.textContent = 'atualizando…';
+      badge.style.pointerEvents = 'none';
+      try {
+        const res = await fetch('/api/update', { method: 'POST' });
+        const d = await res.json();
+        if (d.ok && !d.available) {
+          badge.style.display = 'none';
+          badge.textContent = '⬆ update';
+          alert('JEV atualizado para ' + (d.current || '') + ' ✓');
+        } else {
+          alert('Atualização: ' + (d.message || (d.ok ? 'pendente' : 'falhou')));
+          badge.style.display = '';
+        }
+      } catch (e) {
+        alert('Falha ao atualizar: ' + e.message);
+      }
+      badge.style.pointerEvents = '';
+      badge.textContent = '⬆ update';
     }
 
     let hubData = { skills: [], mcp: [], tools: [] };
@@ -1822,6 +1844,21 @@ function checkForUpdate() {
   });
 }
 
+// Perform the update: git pull + reinstall hooks. Returns { ok, message }.
+function performUpdate() {
+  return new Promise((resolve) => {
+    const dir = path.join(__dirname, '..');
+    exec('git pull origin main --ff-only 2>&1', { cwd: dir, timeout: 60000 }, (err, stdout, stderr) => {
+      if (err) {
+        return resolve({ ok: false, message: (stdout || stderr || '').trim().slice(-300) || err.message });
+      }
+      exec(`node scripts/install-hooks.js --check 2>&1 || node scripts/install-hooks.js 2>&1`, { cwd: dir, timeout: 45000 }, (err2, out2) => {
+        resolve({ ok: true, message: (stdout || '').trim().slice(-200) });
+      });
+    });
+  });
+}
+
 export function startDashboardServer(options = {}) {
   const port = options.port || 3838;
   const projectDir = options.projectDir || process.cwd();
@@ -1934,6 +1971,14 @@ export function startDashboardServer(options = {}) {
       const info = await checkForUpdate();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(info));
+      return;
+    }
+
+    if (urlPath === '/api/update' && req.method === 'POST') {
+      const result = await performUpdate();
+      const info = await checkForUpdate();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ...result, ...info }));
       return;
     }
 
