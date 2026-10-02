@@ -134,6 +134,8 @@ export function createDashboardHtml(initialData, projectDir) {
       content: ""; width: 6px; height: 6px; border-radius: 2px;
       background: var(--good); box-shadow: 0 0 6px rgba(63,182,139,0.6);
     }
+    .badge-update { color: #f5b301; border-color: rgba(245,179,1,0.4); animation: hubFlow 2s linear infinite; }
+    .badge-update::before { background: #f5b301; box-shadow: 0 0 6px rgba(245,179,1,0.7); }
 
     /* ---- KPI ---- */
     .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 26px; }
@@ -500,7 +502,7 @@ export function createDashboardHtml(initialData, projectDir) {
       </div>
       <div class="right">
         <span class="badge" data-i18n="onDemand">On-demand</span>
-        <span id="update-badge" class="badge" style="display:none;cursor:pointer;background:var(--good);" data-i18n-tooltip="updateTip" title="Update available" onclick="window.open('https://github.com/daraujo85/jev-claude-engine','_blank')">⬆ update</span>
+        <span id="update-badge" class="badge badge-update" style="display:none;cursor:pointer;" data-i18n-tooltip="updateTip" title="Update available" onclick="window.open('https://github.com/daraujo85/jev-claude-engine','_blank')">⬆ update</span>
         <select id="lang-select" class="btn" style="margin-right:8px;cursor:pointer;" data-i18n-tooltip="langSelect" title="Language" onchange="setLang(this.value)">
           <option value="en">🇺🇸 English</option>
           <option value="pt-BR">🇧🇷 Português</option>
