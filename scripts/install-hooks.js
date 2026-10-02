@@ -323,6 +323,17 @@ async function installHooks() {
   pushHookIfMissing(settings.hooks.PreCompact, 'jev-fast-compact',
     `node ${path.join(PROJECT_DIR, 'hooks', 'jev-fast-compact.js')}`, null);
 
+  // SessionStart — aviso de atualização do JEV (fail-open, async)
+  settings.hooks.SessionStart = settings.hooks.SessionStart || [];
+  const updateCmd = `bash -c 's="${PROJECT_DIR}/hooks/jev-update-check.sh"; [ -x "$s" ] || exit 0; "$s"'`;
+  if (!JSON.stringify(settings.hooks.SessionStart).includes('jev-update-check')) {
+    if (settings.hooks.SessionStart.length > 0 && Array.isArray(settings.hooks.SessionStart[0].hooks)) {
+      settings.hooks.SessionStart[0].hooks.push({ type: 'command', command: updateCmd, timeout: 15, async: true });
+    } else {
+      settings.hooks.SessionStart.push({ hooks: [{ type: 'command', command: updateCmd, timeout: 15, async: true }] });
+    }
+  }
+
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
   console.log(ok(`settings.json atualizado (backup em ${path.basename(backupFile)})`));
   results.push(['hooks', true]);

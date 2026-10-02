@@ -472,6 +472,7 @@ export function createDashboardHtml(initialData, projectDir) {
       </div>
       <div class="right">
         <span class="badge" data-i18n="onDemand">On-demand</span>
+        <span id="update-badge" class="badge" style="display:none;cursor:pointer;background:var(--good);" data-i18n-tooltip="updateTip" title="Update available" onclick="window.open('https://github.com/daraujo85/jev-claude-engine','_blank')">⬆ update</span>
         <select id="lang-select" class="btn" style="margin-right:8px;cursor:pointer;" data-i18n-tooltip="langSelect" title="Language" onchange="setLang(this.value)">
           <option value="en">🇺🇸 English</option>
           <option value="pt-BR">🇧🇷 Português</option>
@@ -1346,6 +1347,19 @@ function projectShort(p) {
       } catch (e) { console.error('config load failed', e); }
     }
 
+    async function checkUpdate() {
+      try {
+        const res = await fetch('/api/update');
+        const info = await res.json();
+        const badge = document.getElementById('update-badge');
+        if (badge && info && info.available) {
+          badge.style.display = '';
+          badge.setAttribute('data-i18n', 'updateAvailable');
+          badge.textContent = i18nStr('updateAvailable');
+        }
+      } catch (e) { /* fail-open: no badge */ }
+    }
+
     // SPA view switching via sidebar, synced to ?view=<name> query param
     const VIEWS = {
       telemetry: { titleKey: 'titleTelemetry', crumbKey: 'crumbTelemetry', refresh: true },
@@ -1612,11 +1626,34 @@ function projectShort(p) {
     render(currentData);
     setInterval(fetchData, 4000);
     initConfig();
+    checkUpdate();
     applyLang();
     showView(viewFromQuery());
   </script>
 </body>
 </html>`;
+}
+
+// Check if the JEV engine repo has a newer version on origin (like 9router /
+// Portainer "update available"). Fail-open: any error returns behind=false so
+// the badge never blocks the dashboard.
+function checkForUpdate() {
+  return new Promise((resolve) => {
+    const dir = path.join(__dirname, '..');
+    // 1) fetch latest refs (short timeout, offline-safe)
+    exec('git fetch origin --quiet 2>/dev/null', { cwd: dir, timeout: 8000 }, (err) => {
+      // 2) compare local HEAD vs origin/main
+      exec('git rev-parse HEAD 2>/dev/null && git rev-parse origin/main 2>/dev/null', { cwd: dir, timeout: 5000 }, (err2, stdout) => {
+        try {
+          const [current, latest] = String(stdout || '').trim().split(/\s+/);
+          if (!current || !latest) return resolve({ available: false });
+          resolve({ available: current !== latest, current: current.slice(0, 8), latest: latest.slice(0, 8), behind: current !== latest });
+        } catch {
+          resolve({ available: false });
+        }
+      });
+    });
+  });
 }
 
 export function startDashboardServer(options = {}) {
@@ -1724,6 +1761,13 @@ export function startDashboardServer(options = {}) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: e.message }));
       }
+      return;
+    }
+
+    if (urlPath === '/api/update' && req.method === 'GET') {
+      const info = await checkForUpdate();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(info));
       return;
     }
 
