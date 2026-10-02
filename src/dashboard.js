@@ -6,6 +6,7 @@ import path from 'node:path';
 import { readTelemetrySummary } from './telemetry.js';
 import { loadConfig, saveConfig, resetConfig, DEFAULT_CONFIG, deepMerge } from './jev-config.js';
 import { listModels, profileModels, suggestCombos, routerFeatures } from './model-router.js';
+import { readSkillsHub, buildSkillsHub } from './skills-hub.js';
 import { STRINGS, DEFAULT_LANG, currentLang } from './i18n.js';
 import { envKey } from './providers.js';
 import { gatewayToken } from './model-router.js';
@@ -261,6 +262,28 @@ export function createDashboardHtml(initialData, projectDir) {
       100% { background-position: -200% 0; }
     }
 
+    /* ---- Skills Hub ---- */
+    .hub-progress-wrap { margin: 12px 0 8px; }
+    .hub-progress-bar {
+      height: 18px; background: var(--border); border-radius: 9px; overflow: hidden; position: relative;
+    }
+    .hub-progress-fill {
+      height: 100%; width: 0%; border-radius: 9px;
+      background: linear-gradient(90deg, #2dd4bf, #22d3ee, #818cf8, #a78bfa, #2dd4bf);
+      background-size: 200% 100%;
+      animation: hubFlow 1.6s linear infinite;
+      transition: width 0.35s ease;
+    }
+    @keyframes hubFlow { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .hub-progress-label { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+    .hub-progress-pct { float: right; font-weight: 700; color: var(--good); }
+    .hub-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 10px; }
+    .hub-cols h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+    .hub-list { max-height: 300px; overflow-y: auto; font-size: 11px; line-height: 1.5; }
+    .hub-list li { margin-bottom: 2px; }
+    .hub-list .hub-src { opacity: 0.55; font-size: 10px; }
+    .hub-search { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--fg); margin-bottom: 8px; }
+
     /* ---- Feature cards ---- */
     .grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px;
@@ -451,6 +474,10 @@ export function createDashboardHtml(initialData, projectDir) {
       <a href="#" class="nav-item" data-view="router" onclick="showView('router')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 8h18M7 15h3"/><circle cx="17" cy="15" r="1.6"/></svg>
         <span data-i18n="navRouter">9Router</span>
+      </a>
+      <a href="#" class="nav-item" data-view="skills-hub" onclick="showView('skills-hub')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        <span data-i18n="navSkillsHub">Skills Hub</span>
       </a>
       <span class="nav-label" data-i18n="navSystem">System</span>
       <a href="#" class="nav-item" data-view="settings" onclick="showView('settings')">
@@ -704,6 +731,47 @@ export function createDashboardHtml(initialData, projectDir) {
     </div>
 
     <!-- VIEW: 9Router (model routing) -->
+    <div id="view-skills-hub" style="display:none;">
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title" data-i18n="titleSkillsHub">JEV Skills Hub</div>
+          <div class="section-note">discovery de skills/MCP/tools dos harnesses globais — a sessão só conhece a skill do JEV, o resto vive neste catálogo</div>
+        </div>
+
+        <div class="cfg-item">
+          <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <div class="cfg-meta">
+            <div class="cfg-name" data-i18n="hubRunName">Rodar discovery</div>
+            <div class="cfg-desc" data-i18n="hubRunDesc">varre harnesses e puxa skills/MCP/tools pro hub (~/.jev/skills-hub)</div>
+          </div>
+          <div class="cfg-controls">
+            <button class="btn" onclick="runHubDiscovery()" id="hub-run-btn">⟳ Rodar agora</button>
+          </div>
+        </div>
+
+        <div id="hub-progress-wrap" class="hub-progress-wrap" style="display:none;">
+          <div class="hub-progress-bar"><div class="hub-progress-fill" id="hub-progress-fill"></div></div>
+          <div class="hub-progress-label"><span id="hub-progress-label">…</span><span class="hub-progress-pct" id="hub-progress-pct">0%</span></div>
+        </div>
+
+        <div class="cfg-item">
+          <div class="cfg-meta">
+            <div class="cfg-name" data-i18n="hubCatalogName">Catálogo</div>
+            <div class="cfg-desc">INDEX.md em ~/.jev/skills-hub/INDEX.md — o que o JEV consulta sob demanda</div>
+          </div>
+          <div class="cfg-controls">
+            <input class="hub-search" id="hub-search" placeholder="🔍 filtrar…" oninput="renderHubList()" style="width:260px">
+          </div>
+        </div>
+
+        <div class="hub-cols" id="hub-cols">
+          <div><h4 id="hub-count-skills">Skills (0)</h4><ul class="hub-list" id="hub-list-skills"></ul></div>
+          <div><h4 id="hub-count-mcp">MCP (0)</h4><ul class="hub-list" id="hub-list-mcp"></ul></div>
+          <div><h4 id="hub-count-tools">Tools (0)</h4><ul class="hub-list" id="hub-list-tools"></ul></div>
+        </div>
+      </div>
+    </div>
+
     <div id="view-router" style="display:none;">
       <div class="section">
         <div class="section-head">
@@ -1360,12 +1428,63 @@ function projectShort(p) {
       } catch (e) { /* fail-open: no badge */ }
     }
 
+    let hubData = { skills: [], mcp: [], tools: [] };
+    async function loadHub() {
+      try {
+        const res = await fetch('/api/skills-hub');
+        hubData = await res.json();
+        renderHubList();
+      } catch (e) { /* fail-open */ }
+    }
+    function renderHubList() {
+      const q = (document.getElementById('hub-search')?.value || '').toLowerCase();
+      const filtro = (arr) => arr.filter((x) => !q || x.id.toLowerCase().includes(q) || (x.description||'').toLowerCase().includes(q));
+      const skills = filtro(hubData.skills || []);
+      const mcp = filtro(hubData.mcp || []);
+      const tools = filtro(hubData.tools || []);
+      document.getElementById('hub-count-skills').textContent = `Skills (${(hubData.skills||[]).length})`;
+      document.getElementById('hub-count-mcp').textContent = `MCP (${(hubData.mcp||[]).length})`;
+      document.getElementById('hub-count-tools').textContent = `Tools (${(hubData.tools||[]).length})`;
+      document.getElementById('hub-list-skills').innerHTML = skills.slice(0, 150).map((s) =>
+        `<li><b>${s.id}</b> — ${s.description}<div class="hub-src">${s.source}</div></li>`).join('') || '<li>—</li>';
+      document.getElementById('hub-list-mcp').innerHTML = mcp.map((m) =>
+        `<li><b>${m.id}</b> — ${m.description}<div class="hub-src">${m.source}</div></li>`).join('') || '<li>—</li>';
+      document.getElementById('hub-list-tools').innerHTML = tools.map((t) =>
+        `<li><b>${t.id}</b><div class="hub-src">${t.source}</div></li>`).join('') || '<li>—</li>';
+    }
+    function runHubDiscovery() {
+      const wrap = document.getElementById('hub-progress-wrap');
+      const fill = document.getElementById('hub-progress-fill');
+      const label = document.getElementById('hub-progress-label');
+      const pct = document.getElementById('hub-progress-pct');
+      const btn = document.getElementById('hub-run-btn');
+      wrap.style.display = ''; btn.disabled = true;
+      fill.style.width = '0%'; pct.textContent = '0%'; label.textContent = 'Iniciando…';
+      const es = new EventSource('/api/skills-hub/run');
+      es.onmessage = (e) => {
+        const d = JSON.parse(e.data);
+        if (d.done) {
+          hubData = d.hub;
+          es.close();
+          fill.style.width = '100%'; pct.textContent = '100%'; label.textContent = 'Discovery concluído!';
+          renderHubList();
+          setTimeout(() => { wrap.style.display = 'none'; btn.disabled = false; }, 1600);
+        } else {
+          fill.style.width = (d.pct || 0) + '%';
+          pct.textContent = (d.pct || 0) + '%';
+          label.textContent = d.label || '…';
+        }
+      };
+      es.onerror = () => { es.close(); btn.disabled = false; };
+    }
+
     // SPA view switching via sidebar, synced to ?view=<name> query param
     const VIEWS = {
       telemetry: { titleKey: 'titleTelemetry', crumbKey: 'crumbTelemetry', refresh: true },
       config: { titleKey: 'titleConfig', crumbKey: 'crumbConfig', refresh: false },
       guardrails: { titleKey: 'titleGuardrails', crumbKey: 'crumbGuardrails', refresh: false },
       router: { titleKey: 'titleRouter', crumbKey: 'crumbRouter', refresh: false },
+      'skills-hub': { titleKey: 'titleSkillsHub', crumbKey: 'crumbSkillsHub', refresh: false },
       settings: { titleKey: 'titleSettings', crumbKey: 'crumbSettings', refresh: false }
     };
     function viewFromQuery() {
@@ -1374,7 +1493,7 @@ function projectShort(p) {
     }
     function showView(name) {
       if (!VIEWS[name]) name = 'telemetry';
-      ['telemetry', 'config', 'guardrails', 'router', 'settings'].forEach(v => {
+      ['telemetry', 'config', 'guardrails', 'router', 'skills-hub', 'settings'].forEach(v => {
         document.getElementById('view-' + v).style.display = (v === name) ? '' : 'none';
       });
       document.getElementById('page-title').innerText = i18nStr(VIEWS[name].titleKey);
@@ -1627,6 +1746,7 @@ function projectShort(p) {
     setInterval(fetchData, 4000);
     initConfig();
     checkUpdate();
+    loadHub();
     applyLang();
     showView(viewFromQuery());
   </script>
@@ -1768,6 +1888,36 @@ export function startDashboardServer(options = {}) {
       const info = await checkForUpdate();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(info));
+      return;
+    }
+
+    if (urlPath === '/api/skills-hub' && req.method === 'GET') {
+      const hub = readSkillsHub();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(hub || { generatedAt: null, skills: [], mcp: [], tools: [] }));
+      return;
+    }
+
+    // SSE: runs the discovery and streams progress steps for the progressbar.
+    if (urlPath === '/api/skills-hub/run' && req.method === 'GET') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+      res.flushHeaders?.();
+      let sent = false;
+      buildSkillsHub((label, pct) => {
+        if (!res.destroyed) {
+          res.write(`data: ${JSON.stringify({ label, pct })}\n\n`);
+          sent = true;
+        }
+      });
+      const hub = readSkillsHub();
+      if (!res.destroyed) {
+        res.write(`data: ${JSON.stringify({ done: true, hub })}\n\n`);
+        res.end();
+      }
       return;
     }
 
