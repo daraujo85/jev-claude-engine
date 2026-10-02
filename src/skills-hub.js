@@ -251,6 +251,127 @@ export function readSkillsHub() {
   }
 }
 
+// ---------- Modo enxuto (isolamento real) ----------
+// Move skills/MCP dos harnesses para o hub e deixa só a skill jev-hub na
+// sessão. O estado de backup fica em ~/.jev/skills-hub/slim-state.json para
+// restaurar quando o modo for desligado.
+
+export const SLIM_STATE_FILE = path.join(HUB_DIR, 'slim-state.json');
+const DISABLED_DIR = path.join(HUB_DIR, '.disabled');
+
+// dirs de skills por harness + o caminho do MCP no settings de cada um
+const HARNESSES = [
+  {
+    id: 'claude',
+    skillsDir: path.join(os.homedir(), '.claude', 'skills'),
+    mcpFile: path.join(os.homedir(), '.claude.json'),
+    mcpKey: 'mcpServers',
+  },
+  {
+    id: 'agents',
+    skillsDir: path.join(os.homedir(), '.agents', 'skills'),
+    mcpFile: null,
+    mcpKey: null,
+  },
+  {
+    id: 'opencode',
+    skillsDir: path.join(os.homedir(), '.opencode', 'skills'),
+    mcpFile: path.join(os.homedir(), '.config', 'opencode', 'opencode.json'),
+    mcpKey: 'mcp',
+  },
+];
+
+function readJson(file) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+}
+function writeJson(file, data) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
+}
+
+/**
+ * Isolate: move each harness skills dir (minus jev-hub) into .disabled/, back up
+ * and clear MCP from harness settings. Records everything in slim-state.json.
+ * Fail-open: never corrupts a harness — on any error, calls disableSlimMode().
+ */
+export function enableSlimMode() {
+  const state = { version: 1, enabledAt: new Date().toISOString(), moved: {}, mcpBackup: {} };
+  try {
+    for (const h of HARNESSES) {
+      // skills: move non-jev-hub entries into .disabled/<harness>/
+      if (h.skillsDir && fs.existsSync(h.skillsDir)) {
+        const dest = path.join(DISABLED_DIR, h.id);
+        fs.mkdirSync(dest, { recursive: true });
+        const moved = [];
+        for (const entry of fs.readdirSync(h.skillsDir)) {
+          if (entry === 'jev-hub' || entry.startsWith('.')) continue;
+          const from = path.join(h.skillsDir, entry);
+          const to = path.join(dest, entry);
+          try {
+            if (fs.existsSync(to)) fs.rmSync(to, { recursive: true, force: true });
+            fs.renameSync(from, to);
+            moved.push({ from, to });
+          } catch (e) {
+            throw new Error(`falha movendo ${from}: ${e.message}`);
+          }
+        }
+        state.moved[h.id] = { dir: h.skillsDir, dest, entries: moved };
+      }
+
+      // mcp: back up the whole settings file, then clear the mcp key
+      if (h.mcpFile && fs.existsSync(h.mcpFile)) {
+        const cfg = readJson(h.mcpFile);
+        if (cfg && cfg[h.mcpKey] && Object.keys(cfg[h.mcpKey]).length > 0) {
+          state.mcpBackup[h.id] = { file: h.mcpFile, key: h.mcpKey, value: cfg[h.mcpKey] };
+          delete cfg[h.mcpKey];
+          writeJson(h.mcpFile, cfg);
+        }
+      }
+    }
+    writeJson(SLIM_STATE_FILE, state);
+    return { ok: true, moved: Object.keys(state.moved).length, state };
+  } catch (e) {
+    disableSlimMode(); // rollback
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
+ * Restore: move skills back from .disabled/ and restore MCP settings.
+ */
+export function disableSlimMode() {
+  const state = readJson(SLIM_STATE_FILE);
+  if (!state) return { ok: true, note: 'slim mode not active' };
+  try {
+    for (const [hid, mv] of Object.entries(state.moved || {})) {
+      for (const { from, to } of mv.entries || []) {
+        // lstatSync: restore even broken symlinks (existsSync returns false for
+        // a symlink whose target was itself moved to .disabled/).
+        const present = fs.lstatSync(to, { throwIfNoEntry: false });
+        if (present) {
+          try { fs.renameSync(to, from); } catch { /* keep in disabled */ }
+        }
+      }
+    }
+    for (const backup of Object.values(state.mcpBackup || {})) {
+      const cfg = readJson(backup.file) || {};
+      cfg[backup.key] = backup.value;
+      writeJson(backup.file, cfg);
+    }
+    fs.rmSync(SLIM_STATE_FILE, { force: true });
+    return { ok: true, restored: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
+ * Is slim mode currently active?
+ */
+export function isSlimModeActive() {
+  return fs.existsSync(SLIM_STATE_FILE);
+}
+
 if (process.argv[1] && process.argv[1].endsWith('skills-hub.js')) {
   const data = buildSkillsHub();
   console.log(`JEV Skills Hub: ${data.skills.length} skills, ${data.mcp.length} MCP, ${data.tools.length} tools -> ${HUB_DIR}`);

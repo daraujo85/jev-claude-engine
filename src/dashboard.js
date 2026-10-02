@@ -6,7 +6,7 @@ import path from 'node:path';
 import { readTelemetrySummary } from './telemetry.js';
 import { loadConfig, saveConfig, resetConfig, DEFAULT_CONFIG, deepMerge } from './jev-config.js';
 import { listModels, profileModels, suggestCombos, routerFeatures } from './model-router.js';
-import { readSkillsHub, buildSkillsHub } from './skills-hub.js';
+import { readSkillsHub, buildSkillsHub, enableSlimMode, disableSlimMode, isSlimModeActive } from './skills-hub.js';
 import { STRINGS, DEFAULT_LANG, currentLang } from './i18n.js';
 import { envKey } from './providers.js';
 import { gatewayToken } from './model-router.js';
@@ -283,6 +283,7 @@ export function createDashboardHtml(initialData, projectDir) {
     .hub-list li { margin-bottom: 2px; }
     .hub-list .hub-src { opacity: 0.55; font-size: 10px; }
     .hub-search { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--fg); margin-bottom: 8px; }
+    .btn-danger { background: #e5484d; color: #fff; border-color: #e5484d; }
 
     /* ---- Feature cards ---- */
     .grid {
@@ -746,6 +747,17 @@ export function createDashboardHtml(initialData, projectDir) {
           </div>
           <div class="cfg-controls">
             <button class="btn" onclick="runHubDiscovery()" id="hub-run-btn">⟳ Rodar agora</button>
+          </div>
+        </div>
+
+        <div class="cfg-item">
+          <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <div class="cfg-meta">
+            <div class="cfg-name" data-i18n="hubSlimName">Modo enxuto</div>
+            <div class="cfg-desc" data-i18n="hubSlimDesc">move skills/MCP dos harnesses pro hub — a sessão só conhece jev-hub</div>
+          </div>
+          <div class="cfg-controls">
+            <button class="btn" onclick="toggleSlimMode()" id="hub-slim-btn">Ativar modo enxuto</button>
           </div>
         </div>
 
@@ -1439,7 +1451,34 @@ function projectShort(p) {
         const res = await fetch('/api/skills-hub');
         hubData = await res.json();
         renderHubList();
+        const btn = document.getElementById('hub-slim-btn');
+        if (btn && hubData.slimMode) {
+          btn.textContent = 'Desativar modo enxuto';
+          btn.classList.add('btn-danger');
+        }
       } catch (e) { /* fail-open */ }
+    }
+    async function toggleSlimMode() {
+      const btn = document.getElementById('hub-slim-btn');
+      const on = btn && btn.textContent.includes('Ativar');
+      btn.disabled = true; btn.textContent = on ? 'Isolando…' : 'Restaurando…';
+      try {
+        const res = await fetch('/api/skills-hub/slim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: on }),
+        });
+        const d = await res.json();
+        if (d.ok) {
+          btn.textContent = d.slimMode ? 'Desativar modo enxuto' : 'Ativar modo enxuto';
+          btn.classList.toggle('btn-danger', !!d.slimMode);
+        } else {
+          btn.textContent = 'erro: ' + (d.error || '?');
+        }
+      } catch (e) {
+        btn.textContent = 'erro';
+      }
+      btn.disabled = false;
     }
     function renderHubList() {
       const q = (document.getElementById('hub-search')?.value || '').toLowerCase();
@@ -1899,7 +1938,26 @@ export function startDashboardServer(options = {}) {
     if (urlPath === '/api/skills-hub' && req.method === 'GET') {
       const hub = readSkillsHub();
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(hub || { generatedAt: null, skills: [], mcp: [], tools: [] }));
+      res.end(JSON.stringify({
+        ...(hub || { generatedAt: null, skills: [], mcp: [], tools: [] }),
+        slimMode: isSlimModeActive(),
+      }));
+      return;
+    }
+
+    // Toggle modo enxuto: { enabled: true|false } -> move/restaura skills+MCP
+    if (urlPath === '/api/skills-hub/slim' && req.method === 'POST') {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      try {
+        const { enabled } = JSON.parse(body || '{}');
+        const result = enabled ? enableSlimMode() : disableSlimMode();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ...result, slimMode: isSlimModeActive() }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
       return;
     }
 
