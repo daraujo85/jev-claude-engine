@@ -600,20 +600,20 @@ export function createDashboardHtml(initialData, projectDir) {
     <div id="view-config" style="display:none;">
       <div class="section">
         <div class="section-head">
-          <div class="section-title">Hooks</div>
-          <div class="section-note">toggle on/off and tune thresholds · saved to ~/.jev/config.json</div>
+          <div class="section-title" data-i18n="cfgHooks">Hooks</div>
+          <div class="section-note" data-i18n="cfgHooksNote">toggle on/off and tune thresholds · saved to ~/.jev/config.json</div>
         </div>
         <div id="config-hooks"></div>
 
         <div class="section-head" style="margin-top:22px;">
-          <div class="section-title">Skills</div>
-          <div class="section-note">on/off and parameters</div>
+          <div class="section-title" data-i18n="cfgSkills">Skills</div>
+          <div class="section-note" data-i18n="cfgSkillsNote">on/off and parameters</div>
         </div>
         <div id="config-skills"></div>
 
         <div class="config-actions">
           <button class="btn btn-primary" onclick="saveConfig()" data-i18n="save">Save</button>
-          <button class="btn" onclick="resetConfig()">Reset to defaults</button>
+          <button class="btn" onclick="resetConfig()" data-i18n="cfgReset">Reset to defaults</button>
           <span class="save-msg" id="save-msg"></span>
         </div>
       </div>
@@ -623,27 +623,27 @@ export function createDashboardHtml(initialData, projectDir) {
     <div id="view-settings" style="display:none;">
       <div class="section">
         <div class="section-head">
-          <div class="section-title">Pricing &amp; balance</div>
-          <div class="section-note">cost per 1M tokens + initial credit · remaining computed live</div>
+          <div class="section-title" data-i18n="cfgPricingTitle">Pricing &amp; balance</div>
+          <div class="section-note" data-i18n="cfgPricingNote">cost per 1M tokens + initial credit · remaining computed live</div>
         </div>
 
         <div class="cfg-item">
           <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
           <div class="cfg-meta">
-            <div class="cfg-name">JEV API key</div>
-            <div class="cfg-desc">TypeSafe System One · used when no JEV_API_KEY env is set</div>
+            <div class="cfg-name" data-i18n="cfgApiKeyName">JEV API key</div>
+            <div class="cfg-desc" data-i18n="cfgApiKeyDesc">TypeSafe System One · used when no JEV_API_KEY env is set</div>
           </div>
           <div class="cfg-controls">
             <label class="cfg-field"><input type="text" id="cfg-api-key" placeholder="apikey_..." style="width:220px" autocomplete="off" spellcheck="false"></label>
-            <button class="btn" type="button" onclick="toggleApiKey()" title="Show / hide">Reveal</button>
+            <button class="btn" type="button" onclick="toggleApiKey()" data-i18n-title="cfgShowHide" title="Show / hide" data-i18n="cfgReveal">Reveal</button>
           </div>
         </div>
 
         <div class="cfg-item">
           <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M8.5 9h5a2 2 0 0 1 0 4h-3a2 2 0 0 0 0 4h5"/></svg></div>
           <div class="cfg-meta">
-            <div class="cfg-name">Price per million input</div>
-            <div class="cfg-desc">USD · default $0.04 (JEV System One). Adjust if the rate changes.</div>
+            <div class="cfg-name" data-i18n="cfgPriceName">Price per million input</div>
+            <div class="cfg-desc" data-i18n="cfgPriceDesc">USD · default $0.04 (JEV System One). Adjust if the rate changes.</div>
           </div>
           <div class="cfg-controls">
             <label class="cfg-field">USD / M<input type="number" step="0.001" min="0" id="cfg-price-per-m" value="0.04"></label>
@@ -652,8 +652,8 @@ export function createDashboardHtml(initialData, projectDir) {
         <div class="cfg-item">
           <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M12 8v8M8.5 10h4a1.8 1.8 0 0 1 0 3.6H9.5a1.8 1.8 0 0 0 0 3.6h4"/></svg></div>
           <div class="cfg-meta">
-            <div class="cfg-name">Initial balance</div>
-            <div class="cfg-desc">USD · credit you started with (e.g. $5). Used to compute remaining balance.</div>
+            <div class="cfg-name" data-i18n="cfgBalanceName">Initial balance</div>
+            <div class="cfg-desc" data-i18n="cfgBalanceDesc">USD · credit you started with (e.g. $5). Used to compute remaining balance.</div>
           </div>
           <div class="cfg-controls">
             <label class="cfg-field">USD<input type="number" step="0.01" min="0" id="cfg-initial-balance" value="5"></label>
@@ -662,8 +662,8 @@ export function createDashboardHtml(initialData, projectDir) {
         <div class="cfg-item">
           <div class="cfg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></div>
           <div class="cfg-meta">
-            <div class="cfg-name">Remaining balance</div>
-            <div class="cfg-desc">initial − real JEV spend so far</div>
+            <div class="cfg-name" data-i18n="cfgRemainingName">Remaining balance</div>
+            <div class="cfg-desc" data-i18n="cfgRemainingDesc">initial − real JEV spend so far</div>
           </div>
           <div class="cfg-controls">
             <label class="cfg-field" id="cfg-remaining-balance" style="font-size:13px; color:var(--good); font-weight:600;">…</label>
@@ -1147,34 +1147,44 @@ function projectShort(p) {
     };
     const SKILL_META = {
       'jev-discover': {
-        name: 'Discover', desc: 'hybrid discovery (graph + search + JEV)',
+        name: 'feat_discover', desc: 'hybrid discovery (graph + search + JEV)',
         tip: '4-stage pipeline before reading code: Graphify (knowledge graph) → GrepAI (semantic search) → JEV (scores candidates 1–10 in <200ms) → Claude reads only the top 2–3 files. Use for "where is X implemented?" questions without opening dozens of files.',
         fields: [['top_files', 3]]
       },
       'jev-explore': {
-        name: 'Explore', desc: 'score files and pick top relevant',
+        name: 'feat_explore', desc: 'score files and pick top relevant',
         tip: 'Collects candidate files, scores them in batches of 20 via JEV, and returns only the top N most relevant. Prevents context waste from opening many files when searching for a concept.',
         fields: [['batch_size', 20], ['top_files', 3]]
       },
       'jev-review': {
-        name: 'Review', desc: '7-question review pre-filter',
+        name: 'feat_review', desc: '7-question review pre-filter',
         tip: 'Runs the git diff against 7 binary questions: architecture violation, security/auth change, breaking API, DB migration risk, secret exposure, high complexity, missing tests. If all are NO → fast PASS in ~200ms with zero LLM tokens. If any is YES → escalates to deep review with focus points.',
         fields: [['confidence_threshold', 0.50]]
       },
       'jev-anti-regression': {
-        name: 'Anti-Regression', desc: 'detect regression risk in diffs',
+        name: 'feat_anti_regression', desc: 'detect regression risk in diffs',
         tip: 'Analyzes the diff for functional regressions: broken public signatures, deleted/weakened business logic, tests weakened to force the pipeline green, hidden side effects on shared state. A second set of deterministic eyes on code that "was already working".',
         fields: [['confidence_threshold', 0.75]]
       },
       'jev-plan-evaluator': {
-        name: 'Plan Evaluator', desc: 'validate bugfix plans',
+        name: 'feat_plan_evaluator', desc: 'validate bugfix plans',
         tip: 'Before writing code, JEV evaluates the proposed plan against the reported problem: does it fix the root cause or just mask the symptom? Returns a verdict (optimal / symptom-patch / high-regression-risk / ineffective), root-cause coverage and a technical solidity score.',
         fields: [['min_score', 2.5]]
       },
       'jev-browser-test': {
-        name: 'Browser Test', desc: 'autonomous browser UI testing',
+        name: 'feat_browser_test', desc: 'autonomous browser UI testing',
         tip: 'Drives autonomous browser navigation: extracts visible interactive elements and JEV picks the next click/action in ~200ms via the choice primitive. Includes jev_click_goal (autonomous loop), jev_decide_click (single step) and jev_verify_page (semantic verification). Cuts test cycles from ~40s to ~4s.',
         fields: [['max_steps', 10]]
+      },
+      'business-acceptance-review': {
+        name: 'feat_business_acceptance_review', desc: 'acceptance review with evidence matrix',
+        tip: 'Before closing a task: extracts verifiable obligations from the requirement source, flags ambiguities/gaps, builds BDD acceptance scenarios, and emits a traceability matrix (requirement → criterion → scenario → evidence → status). Separates behavior compliance (verifiable now) from business outcome (metrics after release). Reuses the elicited requirements.md as source of truth.',
+        fields: []
+      },
+      'requirements-elicitation': {
+        name: 'feat_requirements_elicitation', desc: 'elicit requirements + mermaid artifacts',
+        tip: 'Turns raw requirement context (ticket, PRD, transcript, WhatsApp/email) into the formal validation base: verifiable obligations, acceptance scenarios (BDD), ambiguities/gaps and PO questions. Generates mermaid artifacts (sequence, ER, components, ADR) and persists requirements.md in ~/.jev/requirements/ and artifacts in ~/.jev/artifacts/.',
+        fields: []
       }
     };
     const GUARD_GR_META = {
@@ -1219,7 +1229,9 @@ function projectShort(p) {
       'jev-review': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10H7a3 3 0 0 0-3 3z"/><path d="M8 8h8M8 11h8M8 14h4"/></svg>',
       'jev-anti-regression': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M12 3L8 7M12 3l4 4"/><path d="M5 14v3a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-3"/></svg>',
       'jev-plan-evaluator': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v4a2 2 0 0 0 4 0V3"/><path d="M5 21h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"/><path d="M9 14h6M12 11v6"/></svg>',
-      'jev-browser-test': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 8h18M8 21h8M12 17v4"/><circle cx="7" cy="12.5" r="0.6" fill="currentColor"/></svg>'
+      'jev-browser-test': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 8h18M8 21h8M12 17v4"/><circle cx="7" cy="12.5" r="0.6" fill="currentColor"/></svg>',
+      'business-acceptance-review': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="18" cy="17" r="3"/><path d="M18 15.5v1.5l1 1"/></svg>',
+      'requirements-elicitation': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h14a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M8 8h8M8 12h5M8 16h3"/></svg>'
     };
     let jevConfig = {};
 
@@ -1249,11 +1261,11 @@ function projectShort(p) {
       }).join('');
       const icon = CFG_ICONS[name] || '';
       return '<div class="cfg-icon">' + icon + '</div>' +
-        '<div class="cfg-meta"><div class="cfg-name">' + meta.name +
-        '<button class="cfg-info" type="button" aria-label="How this works" data-tip="' + escapeAttr(meta.tip) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1.5 1-1.5 2v.7"/><circle cx="11.5" cy="17" r="0.4" fill="currentColor"/></svg></button>' +
-        '</div><div class="cfg-desc">' + meta.desc + '</div></div>' +
+        '<div class="cfg-meta"><div class="cfg-name">' + i18nStr(meta.name) +
+        '<button class="cfg-info" type="button" aria-label="' + i18nStr('cfgHowWorks') + '" data-tip="' + escapeAttr(i18nStr(meta.tip)) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1.5 1-1.5 2v.7"/><circle cx="11.5" cy="17" r="0.4" fill="currentColor"/></svg></button>' +
+        '</div><div class="cfg-desc">' + i18nStr(meta.desc) + '</div></div>' +
         '<div class="cfg-controls">' + fields +
-        '<label class="toggle" title="Enable / disable"><input type="checkbox" data-kind="' + kind + '" data-name="' + name + '" data-field="enabled" ' + (enabled ? 'checked' : '') + '><span class="slider"></span></label>' +
+        '<label class="toggle" title="' + i18nStr('cfgEnableToggle') + '"><input type="checkbox" data-kind="' + kind + '" data-name="' + name + '" data-field="enabled" ' + (enabled ? 'checked' : '') + '><span class="slider"></span></label>' +
         '</div>';
     }
     function cfgItemHTML(kind, name, meta, enabled) {
@@ -1323,7 +1335,7 @@ function projectShort(p) {
       const remaining = initial - spent;
       el.innerText = '$' + remaining.toFixed(4);
       el.style.color = remaining < 0 ? 'var(--bad)' : 'var(--good)';
-      if (remaining < 0) el.innerText = 'exceeded by $' + Math.abs(remaining).toFixed(4);
+      if (remaining < 0) el.innerText = i18nStr('cfgExceeded') + Math.abs(remaining).toFixed(4);
     }
 
     async function initConfig() {
