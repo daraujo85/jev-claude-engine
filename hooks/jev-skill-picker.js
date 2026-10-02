@@ -7,6 +7,7 @@
 
 import { JevClient } from '../src/client.js';
 import { scanInstalledSkills } from '../src/skills-scanner.js';
+import { readSkillsHub, buildSkillsHub } from '../src/skills-hub.js';
 import { QUESTION_TYPES } from '../src/types.js';
 import { renderJevCard } from '../src/ui.js';
 import { loadConfig, isEnabled } from '../src/jev-config.js';
@@ -37,7 +38,17 @@ async function main() {
   const confThreshold = typeof hookCfg.confidence_threshold === 'number' ? hookCfg.confidence_threshold : 0.50;
   const minSkills = typeof hookCfg.min_skills === 'number' ? hookCfg.min_skills : 5;
 
-  const skills = scanInstalledSkills();
+  // Modo enxuto: rotear pelo catálogo do JEV Skills Hub (a sessão só conhece
+  // a skill jev-hub). Fallback para scanInstalledSkills se o hub não existir.
+  const hubOn = isEnabled(cfg, 'hooks', 'jev-skills-hub');
+  let skills;
+  if (hubOn) {
+    let hub = readSkillsHub();
+    if (!hub) hub = buildSkillsHub(); // gera na primeira vez, fail-open
+    skills = (hub?.skills || []).map((s) => ({ id: s.id, name: s.name, description: s.description }));
+  } else {
+    skills = scanInstalledSkills();
+  }
   if (!skills || skills.length < minSkills) {
     // Not enough skills to warrant routing overhead
     process.exit(0);
@@ -94,7 +105,7 @@ async function main() {
       systemMessage: `[JEV] Skill Picker: roteou pra '${answer.choice}' (${Math.round(effectiveProb * 100)}% certeza, ${latency}ms) — poupou ~${tokensSaved.toLocaleString()} tokens de contexto`,
       hookSpecificOutput: {
         hookEventName: 'UserPromptSubmit',
-        additionalContext: `[JEV ROUTER: Invocar skill '${answer.choice}' (${Math.round(effectiveProb * 100)}% certeza). Não carregar outras skills.]`
+        additionalContext: `[JEV ROUTER: Invocar skill '${answer.choice}' (${Math.round(effectiveProb * 100)}% certeza). Não carregar outras skills.${hubOn ? ` Consultar '${answer.choice}' no catálogo ~/.jev/skills-hub/INDEX.md para o path, depois ler o SKILL.md apenas da skill escolhida.` : ''}]`
       }
     }));
   } else {

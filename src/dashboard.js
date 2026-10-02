@@ -1203,6 +1203,11 @@ function projectShort(p) {
         tip: 'Runs on every prompt (UserPromptSubmit). Scans installed skills and asks JEV which single skill best matches the request. On a confident match it injects a routing directive so only that skill is loaded — saving thousands of tokens per prompt instead of loading all skill definitions.',
         fields: [['confidence_threshold', 0.50], ['min_skills', 5]]
       },
+      'jev-skills-hub': {
+        name: 'Skills Hub (modo enxuto)', desc: 'sessão só conhece jev-hub; roteia pelo catálogo',
+        tip: 'Quando ativo, o Skill Picker roteia a partir do catálogo global do JEV (~/.jev/skills-hub/INDEX.md) em vez de varrer os harnesses diretamente. O contexto da sessão só carrega a skill jev-hub; skills/MCP/tools são elencados sob demanda. Requer o discovery do hub (view Skills Hub → Rodar).',
+        fields: [['min_skills', 5]]
+      },
       'jev-fast-compact': {
         name: 'Fast Compaction', desc: 'guide context compaction',
         tip: 'Runs before context compaction (PreCompact) when the conversation exceeds the usage threshold. JEV decides whether the history holds critical content (decisions, rules, diffs) and returns custom instructions that tell the summarizer what to preserve. Below the threshold it stays silent.',
@@ -1442,15 +1447,15 @@ function projectShort(p) {
       const skills = filtro(hubData.skills || []);
       const mcp = filtro(hubData.mcp || []);
       const tools = filtro(hubData.tools || []);
-      document.getElementById('hub-count-skills').textContent = `Skills (${(hubData.skills||[]).length})`;
-      document.getElementById('hub-count-mcp').textContent = `MCP (${(hubData.mcp||[]).length})`;
-      document.getElementById('hub-count-tools').textContent = `Tools (${(hubData.tools||[]).length})`;
+      document.getElementById('hub-count-skills').textContent = \`Skills (\${(hubData.skills||[]).length})\`;
+      document.getElementById('hub-count-mcp').textContent = \`MCP (\${(hubData.mcp||[]).length})\`;
+      document.getElementById('hub-count-tools').textContent = \`Tools (\${(hubData.tools||[]).length})\`;
       document.getElementById('hub-list-skills').innerHTML = skills.slice(0, 150).map((s) =>
-        `<li><b>${s.id}</b> — ${s.description}<div class="hub-src">${s.source}</div></li>`).join('') || '<li>—</li>';
+        \`<li><b>\${s.id}</b> — \${s.description}<div class="hub-src">\${s.source}</div></li>\`).join('') || '<li>—</li>';
       document.getElementById('hub-list-mcp').innerHTML = mcp.map((m) =>
-        `<li><b>${m.id}</b> — ${m.description}<div class="hub-src">${m.source}</div></li>`).join('') || '<li>—</li>';
+        \`<li><b>\${m.id}</b> — \${m.description}<div class="hub-src">\${m.source}</div></li>\`).join('') || '<li>—</li>';
       document.getElementById('hub-list-tools').innerHTML = tools.map((t) =>
-        `<li><b>${t.id}</b><div class="hub-src">${t.source}</div></li>`).join('') || '<li>—</li>';
+        \`<li><b>\${t.id}</b><div class="hub-src">\${t.source}</div></li>\`).join('') || '<li>—</li>';
     }
     function runHubDiscovery() {
       const wrap = document.getElementById('hub-progress-wrap');

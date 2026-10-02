@@ -52,6 +52,10 @@ export const DEFAULT_CONFIG = {
       confidence_threshold: 0.50,
       min_skills: 5
     },
+    'jev-skills-hub': {
+      enabled: true,       // modo enxuto: sessão só conhece jev-hub, roteia pelo catálogo
+      min_skills: 5
+    },
     'jev-task-router': {
       enabled: true,
       confidence_threshold: 0.55
