@@ -266,18 +266,27 @@ const HARNESSES = [
     skillsDir: path.join(os.homedir(), '.claude', 'skills'),
     mcpFile: path.join(os.homedir(), '.claude.json'),
     mcpKey: 'mcpServers',
+    pluginFile: null,
+    pluginKey: null,
+    pluginsDir: null,
   },
   {
     id: 'agents',
     skillsDir: path.join(os.homedir(), '.agents', 'skills'),
     mcpFile: null,
     mcpKey: null,
+    pluginFile: null,
+    pluginKey: null,
+    pluginsDir: null,
   },
   {
     id: 'opencode',
     skillsDir: path.join(os.homedir(), '.opencode', 'skills'),
     mcpFile: path.join(os.homedir(), '.config', 'opencode', 'opencode.json'),
     mcpKey: 'mcp',
+    pluginFile: path.join(os.homedir(), '.config', 'opencode', 'opencode.json'),
+    pluginKey: 'plugin',
+    pluginsDir: path.join(os.homedir(), '.config', 'opencode', 'plugins'),
   },
 ];
 
@@ -295,7 +304,7 @@ function writeJson(file, data) {
  * Fail-open: never corrupts a harness — on any error, calls disableSlimMode().
  */
 export function enableSlimMode() {
-  const state = { version: 1, enabledAt: new Date().toISOString(), moved: {}, mcpBackup: {} };
+  const state = { version: 2, enabledAt: new Date().toISOString(), moved: {}, mcpBackup: {}, pluginBackup: {} };
   try {
     for (const h of HARNESSES) {
       // skills: move non-jev-hub entries into .disabled/<harness>/
@@ -319,12 +328,41 @@ export function enableSlimMode() {
       }
 
       // mcp: back up the whole settings file, then clear the mcp key
-      if (h.mcpFile && fs.existsSync(h.mcpFile)) {
+      if (h.mcpFile && fs.existsSync(h.mcpFile) && h.mcpKey) {
         const cfg = readJson(h.mcpFile);
         if (cfg && cfg[h.mcpKey] && Object.keys(cfg[h.mcpKey]).length > 0) {
           state.mcpBackup[h.id] = { file: h.mcpFile, key: h.mcpKey, value: cfg[h.mcpKey] };
           delete cfg[h.mcpKey];
           writeJson(h.mcpFile, cfg);
+        }
+      }
+
+      // plugins: move local plugin files into .disabled/<harness>-plugins/ and
+      // clear the plugin array from the harness config (keeps npm packages).
+      if (h.pluginsDir && fs.existsSync(h.pluginsDir)) {
+        const dest = path.join(DISABLED_DIR, `${h.id}-plugins`);
+        fs.mkdirSync(dest, { recursive: true });
+        const movedPlugins = [];
+        for (const entry of fs.readdirSync(h.pluginsDir)) {
+          if (entry.startsWith('.')) continue;
+          const from = path.join(h.pluginsDir, entry);
+          const to = path.join(dest, entry);
+          try {
+            if (fs.existsSync(to)) fs.rmSync(to, { recursive: true, force: true });
+            fs.renameSync(from, to);
+            movedPlugins.push({ from, to });
+          } catch (e) {
+            throw new Error(`falha movendo plugin ${from}: ${e.message}`);
+          }
+        }
+        state.moved[`${h.id}-plugins`] = { dir: h.pluginsDir, dest, entries: movedPlugins };
+      }
+      if (h.pluginFile && fs.existsSync(h.pluginFile) && h.pluginKey) {
+        const cfg = readJson(h.pluginFile);
+        if (cfg && Array.isArray(cfg[h.pluginKey]) && cfg[h.pluginKey].length > 0) {
+          state.pluginBackup[h.id] = { file: h.pluginFile, key: h.pluginKey, value: cfg[h.pluginKey] };
+          cfg[h.pluginKey] = []; // keep config valid; npm plugins no-op via empty array
+          writeJson(h.pluginFile, cfg);
         }
       }
     }
@@ -354,6 +392,11 @@ export function disableSlimMode() {
       }
     }
     for (const backup of Object.values(state.mcpBackup || {})) {
+      const cfg = readJson(backup.file) || {};
+      cfg[backup.key] = backup.value;
+      writeJson(backup.file, cfg);
+    }
+    for (const backup of Object.values(state.pluginBackup || {})) {
       const cfg = readJson(backup.file) || {};
       cfg[backup.key] = backup.value;
       writeJson(backup.file, cfg);
