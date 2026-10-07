@@ -106,8 +106,8 @@ async function main() {
     const scriptPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../skills/jev-browser-test/run-harness.py');
     const res = spawnSync('python3', [scriptPath, goal], { stdio: 'inherit' });
     process.exit(res.status || 0);
-  } else if (cmd === 'plan' || cmd === 'visual-plan') {
-    const scriptPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../skills/jev-visual-plan/visual-plan.js');
+  } else if (cmd === 'ui-audit') {
+    const scriptPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../skills/jev-ui-audit/ui-audit.js');
     const res = spawnSync('node', [scriptPath, ...args.slice(1)], { stdio: 'inherit' });
     process.exit(res.status || 0);
   } else if (cmd === 'test') {

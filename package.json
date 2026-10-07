@@ -20,5 +20,9 @@
     "spec-driven"
   ],
   "author": "Diego Araújo",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.48.0",
+    "axe-core": "^4.10.0"
+  }
 }
