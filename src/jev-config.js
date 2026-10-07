@@ -76,7 +76,8 @@ export const DEFAULT_CONFIG = {
     'jev-review': { enabled: true, confidence_threshold: 0.50 },
     'jev-anti-regression': { enabled: true, confidence_threshold: 0.75, min_severity: 'medium' },
     'jev-plan-evaluator': { enabled: true, min_score: 2.5 },
-    'jev-browser-test': { enabled: true, max_steps: 10 }
+    'jev-browser-test': { enabled: true, max_steps: 10 },
+    'jev-visual-plan': { enabled: true, auto_share: true }
   }
 };
 

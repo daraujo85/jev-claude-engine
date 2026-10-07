@@ -10,6 +10,7 @@ import { readSkillsHub, buildSkillsHub, enableSlimMode, disableSlimMode, isSlimM
 import { STRINGS, DEFAULT_LANG, currentLang } from './i18n.js';
 import { envKey } from './providers.js';
 import { gatewayToken } from './model-router.js';
+import { checkCloudflared } from './visual-plan.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // AI-generated logo (Gemini, see docs/jev-logo.png) served as /logo.png.
@@ -642,6 +643,19 @@ export function createDashboardHtml(initialData, projectDir) {
         </div>
         <div id="config-skills"></div>
 
+        <div id="cloudflare-status-box" style="margin-top:20px;padding:12px 14px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:12.5px;">
+              <svg style="width:16px;height:16px;color:var(--cyan)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+              <span>Cloudflare Quick Tunnel (JEV Visual Plan)</span>
+            </div>
+            <span id="cf-status-badge" style="font-size:11px;padding:2px 8px;border-radius:999px;background:var(--cyan-dim);color:var(--cyan);font-weight:600;">verificando...</span>
+          </div>
+          <div id="cf-status-text" style="font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.45;">
+            Zero credenciais: o túnel temporário para compartilhar o fluxo visual não requer conta, login ou chaves de API da Cloudflare.
+          </div>
+        </div>
+
         <div class="config-actions">
           <button class="btn btn-primary" onclick="saveConfig()" data-i18n="save">Save</button>
           <button class="btn" onclick="resetConfig()" data-i18n="cfgReset">Reset to defaults</button>
@@ -1273,6 +1287,11 @@ function projectShort(p) {
         name: 'feat_requirements_elicitation', desc: 'elicit requirements + mermaid artifacts',
         tip: 'Turns raw requirement context (ticket, PRD, transcript, WhatsApp/email) into the formal validation base: verifiable obligations, acceptance scenarios (BDD), ambiguities/gaps and PO questions. Generates mermaid artifacts (sequence, ER, components, ADR) and persists requirements.md in ~/.jev/requirements/ and artifacts in ~/.jev/artifacts/.',
         fields: []
+      },
+      'jev-visual-plan': {
+        name: 'feat_visual_plan', desc: 'visual planning & live execution flow (Archify + Cloudflare)',
+        tip: 'Na etapa de planejamento e execução, gera um fluxo visual interativo (Archify) exibindo: Planejado, Em Execução, Em Teste, Concluído e Pendente. Gera link público temporário com senha via Cloudflare Tunnel sem necessidade de credenciais.',
+        fields: [['auto_share', true]]
       }
     };
     const GUARD_GR_META = {
@@ -1303,7 +1322,8 @@ function projectShort(p) {
       top_files: 'Top files',
       batch_size: 'Batch size',
       min_score: 'Min score',
-      max_steps: 'Max steps'
+      max_steps: 'Max steps',
+      auto_share: 'Auto Cloudflare Share'
     };
     const CFG_ICONS = {
       // hooks
@@ -1319,7 +1339,8 @@ function projectShort(p) {
       'jev-plan-evaluator': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v4a2 2 0 0 0 4 0V3"/><path d="M5 21h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"/><path d="M9 14h6M12 11v6"/></svg>',
       'jev-browser-test': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 8h18M8 21h8M12 17v4"/><circle cx="7" cy="12.5" r="0.6" fill="currentColor"/></svg>',
       'business-acceptance-review': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="18" cy="17" r="3"/><path d="M18 15.5v1.5l1 1"/></svg>',
-      'requirements-elicitation': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h14a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M8 8h8M8 12h5M8 16h3"/></svg>'
+      'requirements-elicitation': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h14a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M8 8h8M8 12h5M8 16h3"/></svg>',
+      'jev-visual-plan': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="6" height="5" rx="1"/><rect x="15" y="3" width="6" height="5" rx="1"/><rect x="9" y="16" width="6" height="5" rx="1"/><path d="M6 8v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8M12 13v3"/></svg>'
     };
     let jevConfig = {};
 
@@ -1374,6 +1395,24 @@ function projectShort(p) {
       if (grSkills) {
         grSkills.innerHTML = '<div class="cfg-item">' + cfgItemBody('skills', 'jev-anti-regression', GUARD_AR_META, jevConfig.skills?.['jev-anti-regression']?.enabled !== false) + '</div>';
       }
+
+      // Cloudflare Quick Tunnel status
+      fetch('/api/cloudflared/status').then(r => r.json()).then(cf => {
+        const badge = document.getElementById('cf-status-badge');
+        const text = document.getElementById('cf-status-text');
+        if (!badge || !text) return;
+        if (cf.installed) {
+          badge.textContent = 'Disponível (Zero credenciais)';
+          badge.style.background = 'var(--good-dim)';
+          badge.style.color = 'var(--good)';
+          text.innerHTML = '<b>cloudflared detectado:</b> <code>' + cf.path + '</code><br>Túneis públicos temporários protegidos por senha funcionam sem nenhuma credencial ou login da Cloudflare.';
+        } else {
+          badge.textContent = 'Não detectado (Opcional)';
+          badge.style.background = 'var(--amber-dim)';
+          badge.style.color = 'var(--amber)';
+          text.innerHTML = 'Para gerar links públicos temporários da Cloudflare sem login, instale com: <code>brew install cloudflared</code> (macOS).<br>Sem ele, os planos visuais continuam funcionando localmente em <code>http://127.0.0.1:porta</code>.';
+        }
+      }).catch(() => {});
 
       // 9Router view
       const rUrl = document.getElementById('cfg-router-url');
@@ -1870,6 +1909,12 @@ export function startDashboardServer(options = {}) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       const stats = readTelemetrySummary(projectDir);
       res.end(JSON.stringify(stats));
+      return;
+    }
+
+    if (urlPath === '/api/cloudflared/status') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(checkCloudflared()));
       return;
     }
 

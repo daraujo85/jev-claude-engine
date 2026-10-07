@@ -19,6 +19,7 @@ precisar de uma capacidade, o fluxo é:
 
 ## Regras
 
+- **WhatsApp (Segurança e Validação)**: NUNCA dispare envio de mensagens, áudio/voz (PTT), imagens, vídeos, arquivos ou documentos no WhatsApp sem ANTES mostrar explicitamente o destinatário e o conteúdo exato ao usuário e aguardar confirmação prévia expressa.
 - **Nunca** carregar/citar múltiplas skills no contexto — só a vencedora.
 - **Nunca** listar o catálogo inteiro na resposta — só a escolha.
 - Se a task não pede skill especializada, trabalhe direto (sem skill).
