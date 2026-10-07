@@ -106,6 +106,10 @@ async function main() {
     const scriptPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../skills/jev-browser-test/run-harness.py');
     const res = spawnSync('python3', [scriptPath, goal], { stdio: 'inherit' });
     process.exit(res.status || 0);
+  } else if (cmd === 'plan' || cmd === 'visual-plan') {
+    const scriptPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../skills/jev-visual-plan/visual-plan.js');
+    const res = spawnSync('node', [scriptPath, ...args.slice(1)], { stdio: 'inherit' });
+    process.exit(res.status || 0);
   } else if (cmd === 'test') {
     await testConnection();
   } else if (cmd === '--version' || cmd === '-v') {
@@ -115,6 +119,7 @@ async function main() {
     console.log(`  jev gain            ${L('cliGain')}`);
     console.log(`  jev gain --history  ${L('cliGainHistory')}`);
     console.log(`  jev dashboard       ${L('cliDashboard')}`);
+    console.log(`  jev plan            Fluxo visual do plano (Archify + Cloudflare)`);
     console.log(`  jev browser <meta>  ${L('cliBrowser')}`);
     console.log(`  jev test            ${L('cliTest')}`);
   }

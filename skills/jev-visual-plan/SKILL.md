@@ -26,12 +26,15 @@ Por padrão, a feature gera automaticamente um link temporário protegido por se
 
 ## 🚀 Ciclo de Uso Durante o Desenvolvimento
 
+Disponível globalmente em qualquer repositório via `jev plan` ou `jev-visual-plan`:
+
 ### 1. Na etapa de Planejamento (Criar o Fluxo Visual)
 Ao planejar uma tarefa ou especificação (Spec, Tasks, PRD):
 ```bash
-node skills/jev-visual-plan/visual-plan.js create "Nome da Feature" tasks.md
+jev plan create "Nome da Feature" tasks.md
+# ou: jev-visual-plan create "Nome da Feature" tasks.md
 ```
-*Gera o arquivo interativo `.archify/visual-plan-<slug>/plan.html`, salva `steps.json` com os detalhes e imprime a URL e a senha de acesso.*
+*Gera o arquivo interativo `.archify/visual-plan-<slug>/plan.html`, salva `steps.json` com os detalhes e imprime a URL Cloudflare e a senha de acesso.*
 
 O markdown de entrada pode conter sub-bullets ou anotações detalhadas:
 ```markdown
@@ -47,19 +50,19 @@ O markdown de entrada pode conter sub-bullets ou anotações detalhadas:
 
 ### 2. Ao Iniciar o Desenvolvimento de uma Etapa
 ```bash
-node skills/jev-visual-plan/visual-plan.js update .archify/visual-plan-<slug>/candidate.json \
+jev plan update .archify/visual-plan-<slug>/candidate.json \
   --step step_2 --status in_progress --details "Desenvolvendo rota de pagamento e controllers"
 ```
 
 ### 3. Ao Entrar na Fase de Testes e Validação
 ```bash
-node skills/jev-visual-plan/visual-plan.js update .archify/visual-plan-<slug>/candidate.json \
+jev plan update .archify/visual-plan-<slug>/candidate.json \
   --step step_2 --status testing --details "Executando testes de integração e cenários de erro"
 ```
 
 ### 4. Ao Concluir a Etapa (Registrando o que foi feito e próximos passos)
 ```bash
-node skills/jev-visual-plan/visual-plan.js update .archify/visual-plan-<slug>/candidate.json \
+jev plan update .archify/visual-plan-<slug>/candidate.json \
   --step step_2 --status done \
   --done "Endpoints de pagamento 100% integrados e testados" \
   --next "Iniciar frontend e checkout"
@@ -67,7 +70,7 @@ node skills/jev-visual-plan/visual-plan.js update .archify/visual-plan-<slug>/ca
 
 ### 5. Encerrar o Compartilhamento
 ```bash
-node skills/jev-visual-plan/visual-plan.js stop .archify/visual-plan-<slug>/plan.html
+jev plan stop .archify/visual-plan-<slug>/plan.html
 ```
 
 ---
