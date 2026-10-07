@@ -10,7 +10,8 @@ import {
   renderVisualPlan,
   startVisualPlanServer,
   stopVisualPlanServer,
-  checkCloudflared
+  checkCloudflared,
+  updatePlanStep
 } from '../../src/visual-plan.js';
 import { loadConfig } from '../../src/jev-config.js';
 
@@ -21,9 +22,17 @@ function printHelp() {
 USO:
   node visual-plan.js create "<Título>" [tarefas.md] [--no-share]
       Cria o diagrama visual do plano (.archify/visual-plan-<slug>/) e gera link Cloudflare com senha.
+      Extrai etapas, o que foi feito, itens em execução e próximos passos.
 
-  node visual-plan.js update <candidate.json|plan.html> --step <id> --status <status>
-      Atualiza o status de uma etapa (planned | in_progress | testing | done) e recompila o diagrama.
+  node visual-plan.js update <candidate.json|plan.html> --step <id> --status <status> [opções]
+      Atualiza o status de uma etapa e recompila o diagrama interativo com detalhes ricos.
+      Status: planned | in_progress | testing | done
+
+      OPÇÕES DE DETALHES:
+        --details "<texto>"    Registra o detalhamento da etapa (o que foi feito, em andamento ou próximo)
+        --done "<texto>"       Especifica o que foi entregue/concluído nesta etapa
+        --next "<texto>"       Especifica os próximos passos/entregas mapeadas
+        --subitem "<texto>"    Adiciona uma sub-tarefa/bullet point à etapa
 
   node visual-plan.js share <plan.html> [porta]
       Sobe o servidor local protegido por senha e o túnel público gratuito da Cloudflare.
@@ -34,18 +43,22 @@ USO:
   node visual-plan.js status
       Verifica a disponibilidade do cloudflared e túneis ativos.
 
-EXEMPLO DE USO NO FLUXO DE DESENVOLVIMENTO:
+EXEMPLO DE CICLO COM DETALHES DAS ETAPAS:
   1. No planejamento:
-     node visual-plan.js create "Feature Autenticação JWT" tasks.md
+     node visual-plan.js create "Feature Checkout Transparente" tasks.md
 
-  2. Ao iniciar uma etapa:
-     node visual-plan.js update .archify/visual-plan-jwt/candidate.json --step step_2 --status in_progress
+  2. Ao iniciar o backend:
+     node visual-plan.js update .archify/visual-plan-checkout/candidate.json \\
+       --step step_2 --status in_progress --details "Construindo rota /api/v1/charge e validação PIX"
 
   3. Ao testar:
-     node visual-plan.js update .archify/visual-plan-jwt/candidate.json --step step_2 --status testing
+     node visual-plan.js update .archify/visual-plan-checkout/candidate.json \\
+       --step step_2 --status testing --details "Validando webhooks do gateway e concorrência"
 
-  4. Ao concluir:
-     node visual-plan.js update .archify/visual-plan-jwt/candidate.json --step step_2 --status done
+  4. Ao concluir (registrando o que foi feito e próximos passos):
+     node visual-plan.js update .archify/visual-plan-checkout/candidate.json \\
+       --step step_2 --status done --done "Endpoints PIX e Cartão finalizados, 100% testes aprovados" \\
+       --next "Iniciar integração do front-end com SDK de pagamento"
 `);
 }
 
@@ -83,6 +96,7 @@ async function handleCreate(title, tasksFile, args) {
 
   const candidateData = buildArchifyWorkflowCandidate(title, steps, htmlFile);
   fs.writeFileSync(candidateFile, JSON.stringify(candidateData, null, 2), 'utf-8');
+  fs.writeFileSync(path.join(outDir, 'steps.json'), JSON.stringify(steps, null, 2), 'utf-8');
 
   console.log(`\n📋 Criando Fluxo Visual com Archify...`);
   console.log(`   Título:    ${title}`);
@@ -121,9 +135,9 @@ async function handleCreate(title, tasksFile, args) {
   }
 }
 
-async function handleUpdate(target, stepId, newStatus) {
+async function handleUpdate(target, stepId, newStatus, options = {}) {
   if (!target || !stepId || !newStatus) {
-    console.error('❌ Uso: node visual-plan.js update <candidate.json|plan.html> --step <id> --status <planned|in_progress|testing|done>');
+    console.error('❌ Uso: node visual-plan.js update <candidate.json|plan.html> --step <id> --status <planned|in_progress|testing|done> [--details "..."]');
     process.exit(1);
   }
 
@@ -133,98 +147,25 @@ async function handleUpdate(target, stepId, newStatus) {
     process.exit(1);
   }
 
-  let jsonPath = target;
-  let htmlPath = target;
-  if (target.endsWith('.html')) {
-    jsonPath = path.join(path.dirname(target), 'candidate.json');
-  } else {
-    htmlPath = path.join(path.dirname(target), 'plan.html');
-  }
+  try {
+    const res = updatePlanStep(target, stepId, newStatus, options);
+    const statusLabels = {
+      planned: '⏳ Planejado / Pendente',
+      in_progress: '⚡ Em Execução',
+      testing: '🧪 Em Teste',
+      done: '✅ Concluído'
+    };
 
-  if (!fs.existsSync(jsonPath)) {
-    console.error(`❌ Arquivo de especificação não encontrado: ${jsonPath}`);
-    process.exit(1);
-  }
-
-  const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-  let found = false;
-
-  const statusLanes = {
-    planned: 'lane_planned',
-    in_progress: 'lane_exec',
-    testing: 'lane_test',
-    done: 'lane_done'
-  };
-
-  const statusSublabels = {
-    planned: '⏳ Pendente',
-    in_progress: '⚡ Em Execução',
-    testing: '🧪 Em Teste',
-    done: '✅ Concluído'
-  };
-
-  const statusTypes = {
-    planned: 'external',
-    in_progress: 'backend',
-    testing: 'security',
-    done: 'frontend'
-  };
-
-  data.nodes = (data.nodes || []).map(n => {
-    if (n.id === stepId || n.label === stepId) {
-      found = true;
-      return {
-        ...n,
-        lane: statusLanes[newStatus] || n.lane,
-        sublabel: statusSublabels[newStatus] || n.sublabel,
-        type: statusTypes[newStatus] || n.type
-      };
+    console.log(`\n✅ Fluxo visual atualizado com sucesso!`);
+    console.log(`   Etapa:      ${res.step.id} (${res.step.title}) -> ${statusLabels[newStatus]}`);
+    const details = res.step.doneDetails || res.step.inProgressDetails || res.step.nextSteps || res.step.description;
+    if (details) {
+      console.log(`   Detalhes:   ${details}`);
     }
-    return n;
-  });
-
-  if (!found) {
-    console.error(`❌ Etapa com id ou título "${stepId}" não encontrada.`);
+    console.log(`   Arquivo:    ${res.htmlPath}`);
+  } catch (err) {
+    console.error(`❌ Erro ao atualizar etapa: ${err.message}`);
     process.exit(1);
-  }
-
-  // Recalcula cards
-  const total = data.nodes.length;
-  const doneCount = data.nodes.filter(n => n.lane === 'lane_done').length;
-  const inProgCount = data.nodes.filter(n => n.lane === 'lane_exec').length;
-  const testCount = data.nodes.filter(n => n.lane === 'lane_test').length;
-  const plannedCount = data.nodes.filter(n => n.lane === 'lane_planned').length;
-  const pct = Math.round((doneCount / total) * 100);
-
-  data.cards = [
-    {
-      dot: pct === 100 ? 'emerald' : (pct >= 50 ? 'cyan' : 'amber'),
-      title: 'Progresso da Execução',
-      items: [
-        `Progresso geral: ${pct}% (${doneCount}/${total} etapas concluídas)`,
-        `⚡ Em Execução: ${inProgCount} | 🧪 Em Teste: ${testCount} | ⏳ Pendentes: ${plannedCount}`
-      ]
-    },
-    {
-      dot: 'cyan',
-      title: 'Última Atualização',
-      items: [
-        `Etapa "${stepId}" atualizada para: ${statusSublabels[newStatus]}`,
-        `Horário: ${new Date().toLocaleTimeString()}`
-      ]
-    }
-  ];
-
-  fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), 'utf-8');
-  console.log(`🔄 Recompilando fluxo visual atualizado...`);
-  const renderRes = renderVisualPlan(jsonPath, htmlPath);
-
-  if (renderRes.success) {
-    console.log(`✅ Fluxo visual atualizado com sucesso!`);
-    console.log(`   Etapa:   ${stepId} -> ${statusSublabels[newStatus]}`);
-    console.log(`   Arquivo: ${htmlPath}`);
-  } else {
-    console.error(`⚠️ Erro na compilação: ${renderRes.error}`);
   }
 }
 
@@ -286,9 +227,19 @@ async function main() {
       const target = args[1];
       const stepIdx = args.indexOf('--step');
       const statusIdx = args.indexOf('--status');
+      const detailsIdx = args.indexOf('--details');
+      const doneIdx = args.indexOf('--done');
+      const nextIdx = args.indexOf('--next');
+      const subitemIdx = args.indexOf('--subitem');
+
       const stepId = stepIdx !== -1 ? args[stepIdx + 1] : null;
       const status = statusIdx !== -1 ? args[statusIdx + 1] : null;
-      await handleUpdate(target, stepId, status);
+      const details = detailsIdx !== -1 ? args[detailsIdx + 1] : null;
+      const doneDetails = doneIdx !== -1 ? args[doneIdx + 1] : null;
+      const nextSteps = nextIdx !== -1 ? args[nextIdx + 1] : null;
+      const subItem = subitemIdx !== -1 ? args[subitemIdx + 1] : null;
+
+      await handleUpdate(target, stepId, status, { details, doneDetails, nextSteps, subItem });
       break;
     }
 

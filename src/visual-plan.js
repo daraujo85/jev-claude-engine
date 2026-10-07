@@ -52,15 +52,17 @@ export function parsePlanSteps(input) {
 
   const lines = input.split('\n');
   const steps = [];
+  let currentStep = null;
   let index = 1;
 
   for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) continue;
+    const trimmed = rawLine.trim();
+    if (!trimmed) continue;
 
     // Reconhece checkboxes markdown: - [x], - [/], - [t], - [ ] ou listas numeradas
-    const checkMatch = line.match(/^[-*]\s*\[([ xX/tT>~])\]\s*(.+)$/);
-    const numMatch = line.match(/^(\d+)[\.\)]\s*(?:\[([ xX/tT>~])\])?\s*(.+)$/);
+    const checkMatch = trimmed.match(/^[-*]\s*\[([ xX/tT>~])\]\s*(.+)$/);
+    const numMatch = trimmed.match(/^(\d+)[\.\)]\s*(?:\[([ xX/tT>~])\])?\s*(.+)$/);
+    const headerMatch = trimmed.match(/^(?:###|##|Task:)\s*(.+)$/i);
 
     if (checkMatch) {
       const mark = checkMatch[1].toLowerCase();
@@ -70,7 +72,8 @@ export function parsePlanSteps(input) {
       else if (mark === '/' || mark === '>') status = 'in_progress';
       else if (mark === 't') status = 'testing';
 
-      steps.push(createStepObject(index++, text, status));
+      currentStep = createStepObject(index++, text, status);
+      steps.push(currentStep);
     } else if (numMatch) {
       const mark = (numMatch[2] || '').toLowerCase();
       const text = numMatch[3].trim();
@@ -85,12 +88,47 @@ export function parsePlanSteps(input) {
         status = 'testing';
       }
 
-      steps.push(createStepObject(index++, cleanStatusTags(text), status));
-    } else if (line.startsWith('### ') || line.startsWith('## ') || line.startsWith('Task:')) {
-      // Cabeçalho de sub-tarefa
-      const clean = line.replace(/^[#]+\s*/, '').replace(/^Task:\s*/i, '').trim();
+      currentStep = createStepObject(index++, cleanStatusTags(text), status);
+      steps.push(currentStep);
+    } else if (headerMatch) {
+      const clean = headerMatch[1].trim();
       if (clean.length > 2) {
-        steps.push(createStepObject(index++, clean, 'planned'));
+        currentStep = createStepObject(index++, clean, 'planned');
+        steps.push(currentStep);
+      }
+    } else if (currentStep) {
+      // Linha associada ao passo atual (sub-item, detalhe, o que foi feito ou próximos passos)
+      const isIndented = /^\s{2,}/.test(rawLine) || /^[\t]/.test(rawLine);
+      const isBullet = /^[-*•+]\s*(.+)$/.test(trimmed);
+      const isDetailLine = /^(o que foi feito|feito|done|em execução|em execucao|em andamento|in progress|testando|testing|próximos passos|proximos passos|next steps|detalhes|details):/i.test(trimmed);
+
+      if (isIndented || isBullet || isDetailLine) {
+        const cleanContent = trimmed.replace(/^[-*•+]\s*/, '').trim();
+
+        if (/^(o que foi feito|feito|done|concluído|concluido):/i.test(cleanContent)) {
+          const detail = cleanContent.replace(/^(o que foi feito|feito|done|concluído|concluido):\s*/i, '').trim();
+          currentStep.doneDetails = currentStep.doneDetails ? `${currentStep.doneDetails}; ${detail}` : detail;
+          currentStep.subItems.push(`Feito: ${detail}`);
+        } else if (/^(em execução|em execucao|em andamento|in progress|testando|testing):/i.test(cleanContent)) {
+          const detail = cleanContent.replace(/^(em execução|em execucao|em andamento|in progress|testando|testing):\s*/i, '').trim();
+          currentStep.inProgressDetails = currentStep.inProgressDetails ? `${currentStep.inProgressDetails}; ${detail}` : detail;
+          currentStep.subItems.push(`Em andamento: ${detail}`);
+        } else if (/^(próximos passos|proximos passos|next steps|a fazer|planejado):/i.test(cleanContent)) {
+          const detail = cleanContent.replace(/^(próximos passos|proximos passos|next steps|a fazer|planejado):\s*/i, '').trim();
+          currentStep.nextSteps = currentStep.nextSteps ? `${currentStep.nextSteps}; ${detail}` : detail;
+          currentStep.subItems.push(`Próximo: ${detail}`);
+        } else if (/^(detalhes|details):/i.test(cleanContent)) {
+          const detail = cleanContent.replace(/^(detalhes|details):\s*/i, '').trim();
+          currentStep.description = `${currentStep.description} — ${detail}`;
+          currentStep.subItems.push(detail);
+        } else {
+          currentStep.subItems.push(cleanContent);
+          if (currentStep.status === 'done' && !currentStep.doneDetails) {
+            currentStep.doneDetails = cleanContent;
+          } else if (currentStep.status === 'planned' && !currentStep.nextSteps) {
+            currentStep.nextSteps = cleanContent;
+          }
+        }
       }
     }
   }
@@ -104,19 +142,46 @@ function cleanStatusTags(text) {
     .trim();
 }
 
-function createStepObject(index, rawTitle, status) {
+function createStepObject(index, rawTitle, status, extra = {}) {
   let title = rawTitle.replace(/^\d+[\.\)]\s*/, '').trim();
-  let desc = '';
+  let fullTitle = title;
+  let desc = extra.description || '';
+  let doneDetails = extra.doneDetails || '';
+  let inProgressDetails = extra.inProgressDetails || '';
+  let nextSteps = extra.nextSteps || '';
+  let subItems = Array.isArray(extra.subItems) ? [...extra.subItems] : [];
+
+  // Suporte a separadores inline com pipes ou travessões (ex: "Auth JWT | Feito: Tokens e rotas")
+  if (title.includes('|')) {
+    const parts = title.split('|').map(p => p.trim());
+    title = parts[0];
+    fullTitle = title;
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      if (/^(feito|done|o que foi feito|concluído|concluido):/i.test(part)) {
+        doneDetails = part.replace(/^(feito|done|o que foi feito|concluído|concluido):\s*/i, '').trim();
+      } else if (/^(em execução|em execucao|em andamento|in progress|testando|testing):/i.test(part)) {
+        inProgressDetails = part.replace(/^(em execução|em execucao|em andamento|in progress|testando|testing):\s*/i, '').trim();
+      } else if (/^(próximos passos|proximos passos|next steps|a fazer|planejado):/i.test(part)) {
+        nextSteps = part.replace(/^(próximos passos|proximos passos|next steps|a fazer|planejado):\s*/i, '').trim();
+      } else if (/^(detalhes|details):/i.test(part)) {
+        desc = part.replace(/^(detalhes|details):\s*/i, '').trim();
+      } else if (!desc) {
+        desc = part;
+      }
+    }
+  }
 
   const splitMatch = title.match(/^([^:\-–]+)[:\-–]\s*(.+)$/);
   if (splitMatch && splitMatch[1].length < 24) {
     title = splitMatch[1].trim();
-    desc = splitMatch[2].trim();
+    fullTitle = title;
+    if (!desc) desc = splitMatch[2].trim();
   }
 
-  // Encurta o título se for longo para manter legibilidade visual
+  // Encurta o título para caber no nó visual sem overflow de texto
   if (title.length > 18) {
-    desc = desc ? `${title} — ${desc}` : title;
+    if (!desc) desc = fullTitle;
     title = title.substring(0, 16) + '...';
   }
 
@@ -124,24 +189,34 @@ function createStepObject(index, rawTitle, status) {
     id: `step_${index}`,
     index,
     title,
-    description: desc || title,
-    status: status || 'planned'
+    fullTitle: extra.fullTitle || fullTitle,
+    description: desc || fullTitle,
+    status: status || 'planned',
+    doneDetails,
+    inProgressDetails,
+    nextSteps,
+    subItems
   };
 }
 
 export function buildArchifyWorkflowCandidate(title, steps, relOutput = 'visual-plan.html') {
   const safeSteps = Array.isArray(steps) && steps.length > 0 ? steps : [
-    { id: 'step_1', index: 1, title: 'Planejamento Inicial', description: 'Definição de escopo e tarefas', status: 'done' },
-    { id: 'step_2', index: 2, title: 'Implementação Core', description: 'Desenvolvimento das regras centrais', status: 'in_progress' },
-    { id: 'step_3', index: 3, title: 'Testes de Cobertura', description: 'Validação de testes unitários e de integração', status: 'testing' },
-    { id: 'step_4', index: 4, title: 'Entrega & Fechamento', description: 'Deploy e verificação final', status: 'planned' }
+    { id: 'step_1', index: 1, title: 'Planejamento Inicial', description: 'Definição de escopo e arquitetura', status: 'done', doneDetails: 'Escopo mapeado e requisitos definidos' },
+    { id: 'step_2', index: 2, title: 'Implementação Core', description: 'Desenvolvimento das regras centrais', status: 'in_progress', inProgressDetails: 'Construindo models e rotas' },
+    { id: 'step_3', index: 3, title: 'Testes de Cobertura', description: 'Validação de testes unitários e de integração', status: 'testing', inProgressDetails: 'Executando bateria de testes' },
+    { id: 'step_4', index: 4, title: 'Entrega & Fechamento', description: 'Deploy e verificação final', status: 'planned', nextSteps: 'Deploy em staging e homologação' }
   ];
 
   const total = safeSteps.length;
-  const doneCount = safeSteps.filter(s => s.status === 'done').length;
-  const inProgCount = safeSteps.filter(s => s.status === 'in_progress').length;
-  const testCount = safeSteps.filter(s => s.status === 'testing').length;
-  const plannedCount = safeSteps.filter(s => s.status === 'planned').length;
+  const doneSteps = safeSteps.filter(s => s.status === 'done');
+  const inProgSteps = safeSteps.filter(s => s.status === 'in_progress');
+  const testSteps = safeSteps.filter(s => s.status === 'testing');
+  const plannedSteps = safeSteps.filter(s => s.status === 'planned');
+
+  const doneCount = doneSteps.length;
+  const inProgCount = inProgSteps.length;
+  const testCount = testSteps.length;
+  const plannedCount = plannedSteps.length;
   const pct = Math.round((doneCount / total) * 100);
 
   const lanes = [
@@ -150,10 +225,6 @@ export function buildArchifyWorkflowCandidate(title, steps, relOutput = 'visual-
     { id: 'lane_test', label: '🧪 Em Teste', variant: 'exception' },
     { id: 'lane_done', label: '✅ Concluído' }
   ];
-
-  // Schema do Archify limita colunas a no máximo 5 (0..5)
-  const totalCols = Math.min(total, 6);
-  const colStep = (idx) => Math.min(Math.floor((idx / total) * totalCols), 5);
 
   const phases = [
     { id: 'phase_plan', label: '1. Mapeamento', fromCol: 0, toCol: 1 },
@@ -168,16 +239,22 @@ export function buildArchifyWorkflowCandidate(title, steps, relOutput = 'visual-
 
     if (s.status === 'done') {
       lane = 'lane_done';
-      sublabel = '✅ Concluído';
+      const detail = s.doneDetails || s.description || 'Concluído';
+      sublabel = `✅ ${detail.length > 20 ? detail.substring(0, 18) + '...' : detail}`;
       type = 'frontend';
     } else if (s.status === 'in_progress') {
       lane = 'lane_exec';
-      sublabel = '⚡ Em Execução';
+      const detail = s.inProgressDetails || s.description || 'Em Execução';
+      sublabel = `⚡ ${detail.length > 20 ? detail.substring(0, 18) + '...' : detail}`;
       type = 'backend';
     } else if (s.status === 'testing') {
       lane = 'lane_test';
-      sublabel = '🧪 Em Teste';
+      const detail = s.inProgressDetails || s.description || 'Em Teste';
+      sublabel = `🧪 ${detail.length > 20 ? detail.substring(0, 18) + '...' : detail}`;
       type = 'security';
+    } else {
+      const detail = s.nextSteps || s.description || 'Pendente';
+      sublabel = `⏳ ${detail.length > 20 ? detail.substring(0, 18) + '...' : detail}`;
     }
 
     // Distribui os nós confortavelmente ao longo das 6 colunas (0..5)
@@ -190,6 +267,7 @@ export function buildArchifyWorkflowCandidate(title, steps, relOutput = 'visual-
       type,
       label: s.title,
       sublabel,
+      tag: `Etapa ${idx + 1}/${total}`,
       width: 140
     };
   });
@@ -209,24 +287,94 @@ export function buildArchifyWorkflowCandidate(title, steps, relOutput = 'visual-
     });
   }
 
-  const cards = [
-    {
-      dot: pct === 100 ? 'emerald' : (pct >= 50 ? 'cyan' : 'amber'),
-      title: 'Progresso da Execução',
-      items: [
-        `Progresso geral: ${pct}% (${doneCount}/${total} etapas)`,
-        `⚡ Em Execução: ${inProgCount} | 🧪 Em Teste: ${testCount} | ⏳ Pendentes: ${plannedCount}`
-      ]
-    },
-    {
-      dot: 'cyan',
-      title: 'Detalhamento das Etapas',
-      items: safeSteps.map(s => {
-        const symbol = s.status === 'done' ? '✅' : (s.status === 'in_progress' ? '⚡' : (s.status === 'testing' ? '🧪' : '⏳'));
-        return `${symbol} ${s.title}: ${s.description}`;
-      }).slice(0, 5)
-    }
+  // --- CARDS COM DETALHES DE CADA ETAPA, O QUE FOI FEITO E PRÓXIMOS PASSOS ---
+  const cards = [];
+
+  // Card 1: Progresso Geral
+  const progressItems = [
+    `Progresso geral: ${pct}% (${doneCount}/${total} etapas concluídas)`,
+    `⚡ Em Execução: ${inProgCount} | 🧪 Em Teste: ${testCount} | ⏳ Pendentes: ${plannedCount}`
   ];
+  if (pct === 100) {
+    progressItems.push('🎉 Todas as etapas foram entregues com sucesso!');
+  } else if (inProgCount > 0 || testCount > 0) {
+    const currentActive = [...inProgSteps, ...testSteps].map(s => s.fullTitle || s.title).join(', ');
+    progressItems.push(`🎯 Foco ativo: ${currentActive}`);
+  } else if (plannedCount > 0) {
+    progressItems.push(`🔜 Próxima etapa a iniciar: ${plannedSteps[0].fullTitle || plannedSteps[0].title}`);
+  }
+  cards.push({
+    dot: pct === 100 ? 'emerald' : (pct >= 50 ? 'cyan' : 'amber'),
+    title: 'Progresso da Execução',
+    items: progressItems
+  });
+
+  // Card 2: O Que Já Foi Feito (Concluído)
+  const doneItems = [];
+  if (doneSteps.length > 0) {
+    for (const s of doneSteps) {
+      const detail = s.doneDetails || s.description || 'Concluído com sucesso';
+      doneItems.push(`✅ [${s.fullTitle || s.title}]: ${detail}`);
+      if (Array.isArray(s.subItems) && s.subItems.length > 0) {
+        for (const sub of s.subItems.slice(0, 3)) {
+          doneItems.push(`   • ${sub}`);
+        }
+      }
+    }
+  } else {
+    doneItems.push('ℹ️ Nenhuma etapa concluída até o momento. Aguardando execução.');
+  }
+  cards.push({
+    dot: 'emerald',
+    title: 'O Que Já Foi Feito',
+    items: doneItems
+  });
+
+  // Card 3: Etapas em Andamento & Testes
+  const activeItems = [];
+  const activeSteps = [...inProgSteps, ...testSteps];
+  if (activeSteps.length > 0) {
+    for (const s of activeSteps) {
+      const isTest = s.status === 'testing';
+      const icon = isTest ? '🧪' : '⚡';
+      const label = isTest ? 'Em Teste' : 'Em Execução';
+      const detail = s.inProgressDetails || s.description || label;
+      activeItems.push(`${icon} [${s.fullTitle || s.title}]: ${detail}`);
+      if (Array.isArray(s.subItems) && s.subItems.length > 0) {
+        for (const sub of s.subItems.slice(0, 3)) {
+          activeItems.push(`   • ${sub}`);
+        }
+      }
+    }
+  } else {
+    activeItems.push('ℹ️ Nenhuma etapa em execução ou teste no momento.');
+  }
+  cards.push({
+    dot: testCount > 0 ? 'violet' : (inProgCount > 0 ? 'amber' : 'slate'),
+    title: 'Em Execução & Testes',
+    items: activeItems
+  });
+
+  // Card 4: Próximos Passos (Planejado / Backlog)
+  const nextItems = [];
+  if (plannedSteps.length > 0) {
+    for (const s of plannedSteps) {
+      const detail = s.nextSteps || s.description || 'Pendente de início';
+      nextItems.push(`⏳ [${s.fullTitle || s.title}]: ${detail}`);
+      if (Array.isArray(s.subItems) && s.subItems.length > 0) {
+        for (const sub of s.subItems.slice(0, 2)) {
+          nextItems.push(`   • ${sub}`);
+        }
+      }
+    }
+  } else {
+    nextItems.push('🎉 Todas as etapas foram finalizadas — sem próximos passos pendentes.');
+  }
+  cards.push({
+    dot: 'cyan',
+    title: 'Próximos Passos',
+    items: nextItems
+  });
 
   return {
     schema_version: 2,
@@ -243,6 +391,119 @@ export function buildArchifyWorkflowCandidate(title, steps, relOutput = 'visual-
     nodes,
     edges,
     cards
+  };
+}
+
+export function updatePlanStep(targetDirOrFile, stepId, newStatus, options = {}) {
+  const targetAbs = path.resolve(targetDirOrFile);
+  const dir = fs.statSync(targetAbs).isDirectory() ? targetAbs : path.dirname(targetAbs);
+
+  const stepsJsonPath = path.join(dir, 'steps.json');
+  const candidateJsonPath = path.join(dir, 'candidate.json');
+  const htmlPath = path.join(dir, 'plan.html');
+
+  let steps = [];
+  let title = 'Plano de Desenvolvimento & Execução';
+
+  if (fs.existsSync(stepsJsonPath)) {
+    try {
+      steps = JSON.parse(fs.readFileSync(stepsJsonPath, 'utf-8'));
+    } catch {}
+  }
+
+  let candidateData = null;
+  if (fs.existsSync(candidateJsonPath)) {
+    try {
+      candidateData = JSON.parse(fs.readFileSync(candidateJsonPath, 'utf-8'));
+      if (candidateData?.meta?.title) title = candidateData.meta.title;
+    } catch {}
+  }
+
+  // Se steps.json ainda não existia, reconstrói steps a partir de candidate.nodes
+  if (!Array.isArray(steps) || steps.length === 0) {
+    if (candidateData?.nodes) {
+      steps = candidateData.nodes.map((n, idx) => {
+        let status = 'planned';
+        if (n.lane === 'lane_done') status = 'done';
+        else if (n.lane === 'lane_exec') status = 'in_progress';
+        else if (n.lane === 'lane_test') status = 'testing';
+        return {
+          id: n.id,
+          index: idx + 1,
+          title: n.label,
+          description: n.label,
+          status,
+          doneDetails: status === 'done' ? (n.sublabel || '') : '',
+          inProgressDetails: (status === 'in_progress' || status === 'testing') ? (n.sublabel || '') : '',
+          nextSteps: status === 'planned' ? (n.sublabel || '') : '',
+          subItems: []
+        };
+      });
+    }
+  }
+
+  let matchedStep = steps.find(s =>
+    s.id === stepId ||
+    s.id === `step_${stepId}` ||
+    s.title?.toLowerCase() === String(stepId).toLowerCase() ||
+    String(s.index) === String(stepId)
+  );
+
+  if (!matchedStep) {
+    throw new Error(`Etapa "${stepId}" não encontrada no plano.`);
+  }
+
+  const validStatuses = ['planned', 'in_progress', 'testing', 'done'];
+  if (newStatus && !validStatuses.includes(newStatus)) {
+    throw new Error(`Status inválido "${newStatus}". Opções válidas: ${validStatuses.join(', ')}`);
+  }
+
+  if (newStatus) {
+    matchedStep.status = newStatus;
+  }
+
+  if (options.details) {
+    if (matchedStep.status === 'done') {
+      matchedStep.doneDetails = options.details;
+    } else if (matchedStep.status === 'in_progress' || matchedStep.status === 'testing') {
+      matchedStep.inProgressDetails = options.details;
+    } else if (matchedStep.status === 'planned') {
+      matchedStep.nextSteps = options.details;
+    }
+    matchedStep.description = options.details;
+  }
+
+  if (options.doneDetails) matchedStep.doneDetails = options.doneDetails;
+  if (options.inProgressDetails) matchedStep.inProgressDetails = options.inProgressDetails;
+  if (options.nextSteps) matchedStep.nextSteps = options.nextSteps;
+
+  if (options.subItem) {
+    if (!Array.isArray(matchedStep.subItems)) matchedStep.subItems = [];
+    matchedStep.subItems.push(options.subItem);
+  }
+
+  // Persiste steps.json
+  fs.writeFileSync(stepsJsonPath, JSON.stringify(steps, null, 2), 'utf-8');
+
+  // Reconstrói candidate.json
+  const updatedCandidate = buildArchifyWorkflowCandidate(title, steps, path.basename(htmlPath));
+  fs.writeFileSync(candidateJsonPath, JSON.stringify(updatedCandidate, null, 2), 'utf-8');
+
+  // Re-renderiza o HTML se ele já existir ou se o candidate existir
+  let renderResult = { success: false };
+  if (fs.existsSync(htmlPath) || fs.existsSync(candidateJsonPath)) {
+    renderResult = renderVisualPlan(candidateJsonPath, htmlPath);
+  }
+
+  return {
+    success: true,
+    step: matchedStep,
+    steps,
+    candidate: updatedCandidate,
+    renderResult,
+    stepsJsonPath,
+    candidateJsonPath,
+    htmlPath
   };
 }
 

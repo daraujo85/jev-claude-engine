@@ -5,11 +5,11 @@ description: Planejamento visual e acompanhamento em tempo real das etapas de de
 
 # /jev-visual-plan — Acompanhamento Visual de Execução (Archify + Cloudflare)
 
-Gera um fluxo visual interativo em tempo real para as etapas de desenvolvimento, permitindo visualizar com clareza:
-- **📋 Planejado**: Etapas mapeadas ainda não iniciadas.
-- **⚡ Em Execução**: Etapa atualmente em desenvolvimento ativo.
-- **🧪 Em Teste**: Etapa em validação, auditoria de cobertura ou QA.
-- **✅ Concluído**: Etapas entregues e validadas.
+Gera um fluxo visual interativo em tempo real para as etapas de desenvolvimento, permitindo visualizar com clareza tanto o status quanto os **detalhes completos de cada etapa**:
+- **📊 Progresso Geral**: Percentual concluído, contadores e foco ativo.
+- **✅ O Que Já Foi Feito**: Detalhes específicos do que foi entregue, artefatos criados e testes aprovados.
+- **⚡ Em Execução & Testes**: O que está sendo desenvolvido no momento e o que está em validação.
+- **📋 Próximos Passos**: Próximas entregas mapeadas, pré-requisitos e tarefas a realizar.
 
 Alimentado pelo motor **Archify Workflow** e integrado ao ecossistema **JEV System One**.
 
@@ -31,21 +31,38 @@ Ao planejar uma tarefa ou especificação (Spec, Tasks, PRD):
 ```bash
 node skills/jev-visual-plan/visual-plan.js create "Nome da Feature" tasks.md
 ```
-*Gera o arquivo interativo `.archify/visual-plan-<slug>/plan.html` e imprime a URL e a senha de acesso.*
+*Gera o arquivo interativo `.archify/visual-plan-<slug>/plan.html`, salva `steps.json` com os detalhes e imprime a URL e a senha de acesso.*
+
+O markdown de entrada pode conter sub-bullets ou anotações detalhadas:
+```markdown
+- [x] 1. Arquitetura e Modelagem
+  - Feito: Schemas de banco de dados definidos
+  - Feito: Contratos da API especificados
+- [/] 2. Endpoints Core
+  - Em andamento: Rota de pagamento e webhooks
+- [ ] 3. Testes e Validação
+  - Próximos passos: Testes unitários e auditoria de segurança
+- [ ] 4. Deploy em Staging
+```
 
 ### 2. Ao Iniciar o Desenvolvimento de uma Etapa
 ```bash
-node skills/jev-visual-plan/visual-plan.js update .archify/visual-plan-<slug>/candidate.json --step step_2 --status in_progress
+node skills/jev-visual-plan/visual-plan.js update .archify/visual-plan-<slug>/candidate.json \
+  --step step_2 --status in_progress --details "Desenvolvendo rota de pagamento e controllers"
 ```
 
 ### 3. Ao Entrar na Fase de Testes e Validação
 ```bash
-node skills/jev-visual-plan/visual-plan.js update .archify/visual-plan-<slug>/candidate.json --step step_2 --status testing
+node skills/jev-visual-plan/visual-plan.js update .archify/visual-plan-<slug>/candidate.json \
+  --step step_2 --status testing --details "Executando testes de integração e cenários de erro"
 ```
 
-### 4. Ao Concluir a Etapa com Sucesso
+### 4. Ao Concluir a Etapa (Registrando o que foi feito e próximos passos)
 ```bash
-node skills/jev-visual-plan/visual-plan.js update .archify/visual-plan-<slug>/candidate.json --step step_2 --status done
+node skills/jev-visual-plan/visual-plan.js update .archify/visual-plan-<slug>/candidate.json \
+  --step step_2 --status done \
+  --done "Endpoints de pagamento 100% integrados e testados" \
+  --next "Iniciar frontend e checkout"
 ```
 
 ### 5. Encerrar o Compartilhamento
