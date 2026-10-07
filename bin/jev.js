@@ -15,7 +15,7 @@ import { QUESTION_TYPES } from '../src/types.js';
 import { loadConfig } from '../src/jev-config.js';
 import { currentLang, t } from '../src/i18n.js';
 
-const VERSION = '1.0.0';
+const VERSION = '0.13.0';
 const LANG = currentLang(loadConfig());
 const L = (k) => t(k, LANG);
 

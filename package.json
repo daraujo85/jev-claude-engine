@@ -1,6 +1,6 @@
 {
   "name": "jev-claude-engine",
-  "version": "1.0.0",
+  "version": "0.13.0",
   "description": "JEV System One Decision Engine integration for Claude Code",
   "main": "src/index.js",
   "type": "module",
