@@ -72,9 +72,9 @@ export class BrowserAdapter {
 
     await this.page.goto(loginPage, { waitUntil: 'networkidle' });
 
-    const emailSel = selectors.email || 'input[type="email"], input[name="email"], input[id="email"]';
-    const passSel = selectors.password || 'input[type="password"], input[name="password"], input[id="password"]';
-    const submitSel = selectors.submit || 'button[type="submit"], button:has-text("Entrar"), button:has-text("Login")';
+    const emailSel = selectors.email || 'input.input, input[type="email"], input[name="email"], input[id="email"]';
+    const passSel = selectors.password || 'input.input, input[type="password"], input[name="password"], input[id="password"]';
+    const submitSel = selectors.submit || 'button[type="submit"], button.button, button:has-text("Entrar"), button:has-text("Login")';
 
     await this.page.fill(emailSel, username);
     await this.page.fill(passSel, password);
