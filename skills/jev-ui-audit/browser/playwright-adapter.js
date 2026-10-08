@@ -70,16 +70,21 @@ export class BrowserAdapter {
     const loginPage = loginUrl || this.options.loginUrl;
     if (!loginPage) throw new Error('No loginUrl provided');
 
+    console.log(`🔐 Authenticating at ${loginPage}...`);
     await this.page.goto(loginPage, { waitUntil: 'networkidle' });
 
     const emailSel = selectors.email || 'input.input, input[type="email"], input[name="email"], input[id="email"]';
     const passSel = selectors.password || 'input.input, input[type="password"], input[name="password"], input[id="password"]';
     const submitSel = selectors.submit || 'button[type="submit"], button.button, button:has-text("Entrar"), button:has-text("Login")';
 
+    console.log(`  Filling email (${emailSel})...`);
     await this.page.fill(emailSel, username);
+    console.log(`  Filling password (${passSel})...`);
     await this.page.fill(passSel, password);
+    console.log(`  Clicking submit (${submitSel})...`);
     await this.page.click(submitSel);
     await this.page.waitForLoadState('networkidle');
+    console.log(`  Current URL after login: ${this.page.url()}`);
 
     return this;
   }
