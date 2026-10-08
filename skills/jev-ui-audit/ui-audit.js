@@ -108,6 +108,26 @@ export function calculateScore(findings) {
   return Math.max(0, Math.min(100, score));
 }
 
+// O mesmo problema (regra + seletor + viewport) em várias rotas costuma ser do
+// layout compartilhado (menu, header): conta uma vez no score e fica marcado em
+// cada finding com as rotas onde aparece, pra separar do problema da tela.
+export function markSharedFindings(findings) {
+  const routesByKey = new Map();
+  const keyOf = f => `${f.rule}|${f.element?.selector || ''}|${f.viewport?.name || ''}`;
+  for (const f of findings) {
+    if (!routesByKey.has(keyOf(f))) routesByKey.set(keyOf(f), new Set());
+    routesByKey.get(keyOf(f)).add(f.route);
+  }
+  const seen = new Set();
+  const unique = [];
+  for (const f of findings) {
+    const routes = [...routesByKey.get(keyOf(f))];
+    f.sharedRoutes = routes.length > 1 ? routes : null;
+    if (!seen.has(keyOf(f))) { seen.add(keyOf(f)); unique.push(f); }
+  }
+  return { unique, shared: findings.filter(f => f.sharedRoutes) };
+}
+
 export function groupFindings(findings) {
   const bySeverity = {};
   const byCategory = {};
@@ -177,11 +197,16 @@ export async function auditUrl(url, config) {
       if (browser.authenticated) {
         const authCheck = await browser.isAuthenticatedOnRoute(route);
         if (!authCheck.authenticated) {
+          const landed = browser.page.url();
+          const alive = await browser.sessionStillValid();
           failures.push({
             analyzer: 'auth',
             route,
             viewport: '*',
-            error: `não autenticado na rota (${browser.page.url()}): ${authCheck.reason}`
+            sessionValid: alive,
+            error: `não autenticado na rota (${landed}): ${authCheck.reason}; ` + (alive
+              ? 'a sessão continua válida, então a rota não existe no router ou o usuário não tem permissão'
+              : 'a sessão caiu (login expirou ou foi derrubado)')
           });
           continue;
         }
@@ -281,7 +306,8 @@ Examples:
   const { findings, failures, routes } = await auditUrl(url, config);
   const duration = Date.now() - startTime;
 
-  const score = calculateScore(findings);
+  const { unique, shared } = markSharedFindings(findings);
+  const score = calculateScore(unique);
   const { bySeverity, byCategory } = groupFindings(findings);
 
   const results = {
@@ -290,6 +316,8 @@ Examples:
     baseUrl: url,
     score,
     findings,
+    uniqueFindings: unique.length,
+    sharedFindings: shared.length,
     bySeverity,
     byCategory,
     complete: failures.length === 0,

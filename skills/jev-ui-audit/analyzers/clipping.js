@@ -27,16 +27,26 @@ export async function analyzeClipping(context) {
     function straddles(box, r) {
       return (r.left < box.left - 1 && r.right > box.left + 1) || (r.left < box.right - 1 && r.right > box.right + 1);
     }
-    function hasCutContent(container, axis) {
+    // Lista o que ficou cortado (vazia = nada real escondido). Guarda só o
+    // elemento mais externo de cada trecho, com texto, pra evidência legível.
+    function cutContent(container, axis) {
       const box = container.getBoundingClientRect();
-      if (directTextRects(container).some(r => outside(box, r, axis))) return true;
+      const cut = [];
+      if (directTextRects(container).some(r => outside(box, r, axis))) cut.push(container);
       for (const d of container.querySelectorAll('*')) {
         const r = d.getBoundingClientRect();
         if (r.width === 0 || r.height === 0) continue;
-        if (axis === 'y' ? outside(box, r, 'y') : straddles(box, r)) return true;
-        if (axis === 'x' && directTextRects(d).some(t => straddles(box, t))) return true;
+        if ((axis === 'y' ? outside(box, r, 'y') : straddles(box, r)) ||
+            (axis === 'x' && directTextRects(d).some(t => straddles(box, t)))) {
+          if (!cut.some(c => c !== container && c.contains(d))) cut.push(d);
+        }
       }
-      return false;
+      return cut;
+    }
+    function describe(els) {
+      return els.map(e => (e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 30)
+        || e.getAttribute('aria-label') || e.getAttribute('href') || e.tagName.toLowerCase())
+        .filter((t, i, a) => a.indexOf(t) === i).slice(0, 5);
     }
 
     for (const el of document.body.querySelectorAll('*')) {
@@ -59,9 +69,10 @@ export async function analyzeClipping(context) {
       const clamp = (style.webkitLineClamp && style.webkitLineClamp !== 'none') ||
                     (style.lineClamp && style.lineClamp !== 'none');
 
-      const cutX = clipsX && !ellipsis && el.scrollWidth > el.clientWidth + 1 && hasCutContent(el, 'x');
-      const cutY = clipsY && !clamp && el.scrollHeight > el.clientHeight + 1 && hasCutContent(el, 'y');
-      if (!cutX && !cutY) continue;
+      const cutX = clipsX && !ellipsis && el.scrollWidth > el.clientWidth + 1 ? cutContent(el, 'x') : [];
+      const cutY = clipsY && !clamp && el.scrollHeight > el.clientHeight + 1 ? cutContent(el, 'y') : [];
+      if (!cutX.length && !cutY.length) continue;
+      const cut = [...cutX, ...cutY.filter(e => !cutX.includes(e))];
 
       findings.push({
         tag: el.tagName.toLowerCase(),
@@ -73,7 +84,9 @@ export async function analyzeClipping(context) {
         clientWidth: el.clientWidth,
         scrollHeight: el.scrollHeight,
         clientHeight: el.clientHeight,
-        selector: getSelector(el)
+        selector: getSelector(el),
+        cutCount: cut.length,
+        cutItems: describe(cut)
       });
     }
 
@@ -98,7 +111,10 @@ export async function analyzeClipping(context) {
         textPreview: item.textPreview,
         selector: item.selector
       },
-      message: `Conteúdo cortado por overflow ${item.overflowX}/${item.overflowY}`,
+      // overflow hidden não rola com mouse nem toque: o que está fora só aparece
+      // se algum script mexer no scrollTop (ou via foco de teclado)
+      message: `Conteúdo cortado por overflow ${item.overflowX}/${item.overflowY}: ` +
+        `${item.cutCount} elemento(s) fora da caixa sem rolagem (${item.cutItems.join(', ')})`,
       metrics: {
         overflowX: item.overflowX,
         overflowY: item.overflowY,
@@ -106,7 +122,8 @@ export async function analyzeClipping(context) {
         clientWidth: item.clientWidth,
         scrollHeight: item.scrollHeight,
         clientHeight: item.clientHeight
-      }
+      },
+      evidence: { cutCount: item.cutCount, cutItems: item.cutItems }
     }));
   }
 

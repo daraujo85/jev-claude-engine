@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runAnalyzers } from '../skills/jev-ui-audit/analyzers/index.js';
-import { calculateScore } from '../skills/jev-ui-audit/ui-audit.js';
+import { calculateScore, markSharedFindings } from '../skills/jev-ui-audit/ui-audit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(__dirname, '../skills/jev-ui-audit/fixtures/test-page.html');
@@ -42,6 +42,35 @@ test('ui-audit: calculateScore penaliza por severidade e não fica negativo', ()
   assert.equal(calculateScore([]), 100);
   assert.equal(calculateScore([{ severity: 'critical' }, { severity: 'high' }]), 77);
   assert.equal(calculateScore(Array(10).fill({ severity: 'blocker' })), 0);
+});
+
+test('ui-audit: finding repetido em várias rotas é marcado e conta uma vez', () => {
+  const mk = (route, selector, vp = 'desktop') => ({ rule: 'a11y-button-name', severity: 'critical', route, viewport: { name: vp }, element: { selector } });
+  const fs = [mk('/a', '.menu'), mk('/b', '.menu'), mk('/a', '.so-aqui'), mk('/b', '.menu', 'mobile')];
+  const { unique, shared } = markSharedFindings(fs);
+  assert.equal(unique.length, 3);
+  assert.equal(shared.length, 2);
+  assert.deepEqual(fs[0].sharedRoutes, ['/a', '/b']);
+  assert.equal(fs[2].sharedRoutes, null);
+  assert.equal(fs[3].sharedRoutes, null); // mesmo seletor, outro viewport
+});
+
+test('ui-audit: content-clipping diz o que ficou fora da caixa', { skip: skipReason }, async () => {
+  const browser = new BrowserAdapter();
+  await browser.start();
+  try {
+    await browser.setViewport(1440, 300);
+    await browser.page.setContent(`<!DOCTYPE html><html lang="pt-BR"><head><title>t</title></head><body style="margin:0">
+      <nav class="lateral" style="height:120px;overflow:hidden">${['Início', 'Pedidos', 'Clientes', 'Relatórios', 'Ajustes', 'Sair']
+        .map(t => `<a href="/${t}" style="display:block;height:40px">${t}</a>`).join('')}</nav></body></html>`);
+    const { findings } = await runAnalyzers({ page: browser.page, route: '/x', viewport: DESKTOP, config: { accessibility: false } });
+    const clip = findings.find(f => f.rule === 'content-clipping');
+    assert.ok(clip, JSON.stringify(findings));
+    assert.deepEqual(clip.evidence.cutItems, ['Relatórios', 'Ajustes', 'Sair']);
+    assert.match(clip.message, /3 elemento\(s\) fora da caixa/);
+  } finally {
+    await browser.close();
+  }
 });
 
 test('ui-audit: setViewport redimensiona a página', { skip: skipReason }, async () => {
@@ -293,6 +322,9 @@ test('ui-audit: rota que redireciona pro login vira falha, não audit da tela de
     assert.equal(failures.length, 1, JSON.stringify(failures));
     assert.equal(failures[0].route, '/privada');
     assert.equal(failures[0].analyzer, 'auth');
+    // /painel continua logado: a falha é da rota, não da sessão
+    assert.equal(failures[0].sessionValid, true);
+    assert.match(failures[0].error, /rota não existe no router ou o usuário não tem permissão/);
   } finally {
     server.close();
   }

@@ -18,6 +18,8 @@ export function reportJSON(results, options = {}) {
       complete: results.complete ?? true,
       failedAnalyzers: results.failedAnalyzers || [],
       totalFindings: results.findings.length,
+      uniqueFindings: results.uniqueFindings ?? results.findings.length,
+      sharedFindings: results.sharedFindings ?? 0,
       bySeverity: results.bySeverity,
       byCategory: results.byCategory
     },
@@ -60,6 +62,11 @@ export function printSummary(results) {
   }
 
   console.log('└─────────────────────────────────────────────────────────────┘\n');
+
+  if (results.sharedFindings) {
+    console.log(`🔁 ${results.sharedFindings} finding(s) se repetem em mais de uma rota (layout compartilhado);`);
+    console.log(`   o score conta ${results.uniqueFindings} problema(s) distinto(s). Veja findings[].sharedRoutes.\n`);
+  }
 
   const failed = results.failedAnalyzers || [];
   if (failed.length > 0) {

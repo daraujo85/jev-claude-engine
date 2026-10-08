@@ -114,6 +114,7 @@ export class BrowserAdapter {
     await this.page.waitForLoadState('networkidle').catch(() => {});
     console.log(`  Logado: ${this.page.url()}`);
     this.authenticated = true;
+    this.landingUrl = this.page.url();
 
     return this;
   }
@@ -160,6 +161,16 @@ export class BrowserAdapter {
     return isAuthenticated
       ? { authenticated: true, reason: 'ok' }
       : { authenticated: false, reason: 'no layout or token found' };
+  }
+
+  // Rota caiu no login: reabre a página de pouso do login. Se lá continua
+  // logado, a sessão está viva e o problema é a rota (não existe no router ou
+  // o usuário não tem permissão); senão a sessão caiu de verdade.
+  async sessionStillValid() {
+    if (!this.landingUrl) return false;
+    await this.open(this.landingUrl).catch(() => {});
+    await this.page.waitForLoadState('networkidle').catch(() => {});
+    return !(await this.isOnLoginForm()) && !new URL(this.page.url()).pathname.includes('/login');
   }
 
   // Rota que caiu de volta no login (sessão perdida, guard de rota)
