@@ -20,26 +20,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export async function discoverRoutesAdvanced({ baseUrl, projectDir, config, page }) {
   const routes = new Set();
 
-  // 1. Config file (.jev/ui-audit.json)
+  // 1. DOM links (highest priority if page provided)
+  if (page) {
+    const domRoutes = await discoverFromDOM(page);
+    domRoutes.forEach(r => routes.add(r));
+  }
+
+  // 2. Config file (.jev/ui-audit.json)
   const configRoutes = await discoverFromConfig(projectDir);
   configRoutes.forEach(r => routes.add(r));
 
-  // 2. Framework route files
-  if (projectDir) {
+  // 3. Framework route files (only if no DOM routes found)
+  if (routes.size === 0 && projectDir) {
     const frameworkRoutes = await discoverFromFrameworkFiles(projectDir);
     frameworkRoutes.forEach(r => routes.add(r));
   }
 
-  // 3. Sitemap.xml
-  if (baseUrl) {
+  // 4. Sitemap.xml (fallback)
+  if (routes.size === 0 && baseUrl) {
     const sitemapRoutes = await discoverFromSitemap(baseUrl);
     sitemapRoutes.forEach(r => routes.add(r));
-  }
-
-  // 4. DOM links (if page provided)
-  if (page) {
-    const domRoutes = await discoverFromDOM(page);
-    domRoutes.forEach(r => routes.add(r));
   }
 
   // Filter and return
