@@ -66,6 +66,12 @@ jev ui-audit http://localhost:4200 --no-a11y --no-lighthouse
 jev ui-audit https://app.com --login-url https://app.com/login --username user@email.com --password '***'
 ```
 
+Login: a senha é o `input[type=password]`; o usuário é o primeiro campo de texto
+visível (serve pra form de SPA sem `type=email` nem label). O login só conta se o
+campo de senha sumir; senão o audit aborta com o erro de rede do submit (ex.: API
+fora do ar), em vez de auditar a tela de login. Rota que cai de volta no form de
+senha depois de logado entra em `failedAnalyzers` (`auth`) e não é auditada.
+
 ## Analyzers
 
 | Regra | Analyzer | Observação |

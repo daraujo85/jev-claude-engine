@@ -172,6 +172,18 @@ export async function auditUrl(url, config) {
 
       await browser.waitForStableState();
 
+      // Logado e a rota mostra form de senha: redirecionou pro login. Auditar
+      // isso seria medir a tela de login com o nome de outra rota.
+      if (browser.authenticated && await browser.isOnLoginForm()) {
+        failures.push({
+          analyzer: 'auth',
+          route,
+          viewport: '*',
+          error: `rota redirecionou para o login (${browser.page.url()}); sessão perdida ou sem permissão`
+        });
+        continue;
+      }
+
       // Audit each viewport
       for (const vp of config.viewports) {
         await browser.setViewport(vp.width, vp.height);

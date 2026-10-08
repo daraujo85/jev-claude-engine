@@ -73,20 +73,56 @@ export class BrowserAdapter {
     console.log(`🔐 Authenticating at ${loginPage}...`);
     await this.page.goto(loginPage, { waitUntil: 'networkidle' });
 
-    const emailSel = selectors.email || 'input.input, input[type="email"], input[name="email"], input[id="email"]';
-    const passSel = selectors.password || 'input.input, input[type="password"], input[name="password"], input[id="password"]';
-    const submitSel = selectors.submit || 'button[type="submit"], button.button, button:has-text("Entrar"), button:has-text("Login")';
+    // Senha é sempre type=password. O usuário é o campo de texto visível que
+    // vem antes dela (forms de SPA costumam ter input sem type=email nem label)
+    const pass = this.page.locator(selectors.password || 'input[type="password"]').first();
+    await pass.waitFor({ state: 'visible', timeout: 10000 });
+    const user = selectors.email
+      ? this.page.locator(selectors.email).first()
+      : this.page.locator([
+        'input[type="email"]', 'input[autocomplete="username"]', 'input[name*="email" i]',
+        'input[name*="user" i]', 'input[name*="login" i]',
+        'input:not([type]), input[type="text"], input[type="tel"]'
+      ].join(', ')).filter({ visible: true }).first();
+    await user.fill(username);
+    await pass.fill(password);
 
-    console.log(`  Filling email (${emailSel})...`);
-    await this.page.fill(emailSel, username);
-    console.log(`  Filling password (${passSel})...`);
-    await this.page.fill(passSel, password);
-    console.log(`  Clicking submit (${submitSel})...`);
-    await this.page.click(submitSel);
-    await this.page.waitForLoadState('networkidle');
-    console.log(`  Current URL after login: ${this.page.url()}`);
+    // Erro de rede/HTTP durante o submit explica a falha melhor que a URL
+    const netErrors = [];
+    const onFail = r => netErrors.push(`${r.method()} ${r.url().replace(/\?.*/, '')} ${r.failure()?.errorText || ''}`.trim());
+    const onResp = r => { if (r.status() >= 400 && r.request().resourceType() !== 'document') netErrors.push(`${r.status()} ${r.request().method()} ${r.url().replace(/\?.*/, '')}`); };
+    this.page.on('requestfailed', onFail);
+    this.page.on('response', onResp);
+
+    const submit = this.page.locator(selectors.submit ||
+      'button[type="submit"], input[type="submit"], button:has-text("Entrar"), button:has-text("Login")')
+      .filter({ visible: true }).first();
+    if (await submit.count()) await submit.click();
+    else await pass.press('Enter');
+
+    // Login só conta se o campo de senha sumir; senão as rotas seguintes
+    // auditariam a tela de login sem ninguém perceber
+    try {
+      await pass.waitFor({ state: 'hidden', timeout: 15000 });
+    } catch {
+      const why = netErrors.length ? `; rede: ${netErrors.slice(0, 3).join(' | ')}` : '';
+      throw new Error(`Login falhou: o campo de senha continua na tela (${this.page.url()})${why}`);
+    } finally {
+      this.page.off('requestfailed', onFail);
+      this.page.off('response', onResp);
+    }
+    await this.page.waitForLoadState('networkidle').catch(() => {});
+    console.log(`  Logado: ${this.page.url()}`);
+    this.authenticated = true;
 
     return this;
+  }
+
+  // Rota que caiu de volta no login (sessão perdida, guard de rota)
+  async isOnLoginForm() {
+    if (!this.page) return false;
+    return this.page.locator('input[type="password"]').filter({ visible: true }).count()
+      .then(n => n > 0).catch(() => false);
   }
 
   async open(url) {

@@ -237,3 +237,63 @@ test('ui-audit: benchmark de fixtures com 100% de recall e precisão', { skip: s
   assert.equal(total.precision, 1, report);
   assert.ok(total.expected >= 149, 'benchmark encolheu');
 });
+
+// Login estilo SPA: input sem type nem label (como o admin do Prata), senha,
+// botão sem type=submit. /privada redireciona pro login sem o cookie.
+function loginServer() {
+  return import('node:http').then(http => http.createServer((req, res) => {
+    const logged = /sessao=ok/.test(req.headers.cookie || '');
+    const html = body => { res.writeHead(200, { 'content-type': 'text/html' }); res.end(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>t</title></head><body>${body}</body></html>`); };
+    if (req.url === '/login') {
+      return html(`<main><label>E-mail</label><input class="input" placeholder="voce@x.com">
+        <label>Senha</label><input class="input" type="password"><button class="button">Entrar</button>
+        <script>document.querySelector('button').onclick = () => {
+          if (document.querySelector('[type=password]').value !== 'certa') return;
+          document.cookie = 'sessao=ok; path=/'; location.href = '/painel';
+        };</script></main>`);
+    }
+    if (req.url === '/painel') return logged ? html('<main><h1>Painel</h1></main>') : (res.writeHead(302, { location: '/login' }), res.end());
+    if (req.url === '/privada') { res.writeHead(302, { location: '/login' }); return res.end(); }
+    res.writeHead(404); res.end();
+  }));
+}
+
+test('ui-audit: authenticate loga em form SPA e falha alto com senha errada', { skip: skipReason }, async () => {
+  const server = await loginServer();
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const browser = new BrowserAdapter();
+  await browser.start();
+  try {
+    await browser.authenticate('a@b.com', 'certa', `${base}/login`);
+    assert.equal(browser.page.url(), `${base}/painel`);
+    assert.equal(await browser.page.inputValue('input.input:not([type])').catch(() => 'sumiu'), 'sumiu');
+
+    const outro = new BrowserAdapter();
+    await outro.start();
+    await assert.rejects(outro.authenticate('a@b.com', 'errada', `${base}/login`), /Login falhou/);
+    await outro.close();
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('ui-audit: rota que redireciona pro login vira falha, não audit da tela de login', { skip: skipReason }, async () => {
+  const { auditUrl } = await import('../skills/jev-ui-audit/ui-audit.js');
+  const server = await loginServer();
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const { findings, failures } = await auditUrl(`${base}/painel`, {
+      routes: ['/painel', '/privada'], viewports: [DESKTOP], accessibility: false, lighthouse: false,
+      username: 'a@b.com', password: 'certa', loginUrl: `${base}/login`
+    });
+    assert.ok(findings.every(f => f.route === '/painel'), JSON.stringify(findings));
+    assert.equal(failures.length, 1, JSON.stringify(failures));
+    assert.equal(failures[0].route, '/privada');
+    assert.equal(failures[0].analyzer, 'auth');
+  } finally {
+    server.close();
+  }
+});
