@@ -118,6 +118,50 @@ export class BrowserAdapter {
     return this;
   }
 
+  // Verifica se a página atual corresponde à rota esperada E se não está na tela de login
+  async isAuthenticatedOnRoute(expectedRoute) {
+    if (!this.page) return { authenticated: false, reason: 'no page' };
+    const url = this.page.url();
+    const parsedUrl = new URL(url);
+    const path = parsedUrl.pathname;
+
+    // Se a URL contém /login, não está autenticado
+    if (path.includes('/login')) {
+      return { authenticated: false, reason: 'url contains /login' };
+    }
+
+    // Se há input[type="password"] visível, está na tela de login
+    const hasPassword = await this.page.locator('input[type="password"]').filter({ visible: true }).count();
+    if (hasPassword > 0) {
+      return { authenticated: false, reason: 'password field visible' };
+    }
+
+    // Verifica se a rota esperada está na URL (permite redirect para sub-rota)
+    const expectedPath = expectedRoute.startsWith('/') ? expectedRoute : '/' + expectedRoute;
+    if (!path.startsWith(expectedPath) && path !== '/' && expectedPath !== '/') {
+      // Allow some flexibility - if we're on a sub-path of expected
+      if (!path.startsWith(expectedPath.split('/').slice(0, -1).join('/'))) {
+        return { authenticated: false, reason: `url ${path} does not match expected ${expectedPath}` };
+      }
+    }
+
+    // Verifica indicadores de sessão válida: sidebar/menu O localStorage token
+    // Fallback: se a URL não contém /login e não tem senha visível, assume autenticado
+    // (isso funciona para SPAs que redirecionam para páginas sem elementos de layout)
+    const hasLayout = await this.page.locator('aside, nav.sidebar, .sidebar, [class*="sidebar"], header nav, .menu').first().count().catch(() => 0);
+    const hasToken = await this.page.evaluate(() => {
+      const keys = Object.keys(localStorage);
+      return keys.some(k => k.toLowerCase().includes('token') || k.toLowerCase().includes('auth') || k.toLowerCase().includes('session'));
+    }).catch(() => false);
+
+    // Autenticado se: (tem layout OU token) OU (não tem /login na URL E não tem campo de senha)
+    const isAuthenticated = (hasLayout > 0 || hasToken) || (hasPassword === 0 && !path.includes('/login'));
+
+    return isAuthenticated
+      ? { authenticated: true, reason: 'ok' }
+      : { authenticated: false, reason: 'no layout or token found' };
+  }
+
   // Rota que caiu de volta no login (sessão perdida, guard de rota)
   async isOnLoginForm() {
     if (!this.page) return false;
