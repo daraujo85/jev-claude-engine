@@ -4,6 +4,7 @@
  */
 
 import { chromium } from 'playwright';
+import fs from 'node:fs';
 
 export class BrowserAdapter {
   constructor(options = {}) {
@@ -17,10 +18,48 @@ export class BrowserAdapter {
   }
 
   async start() {
-    this.browser = await chromium.launch({
-      headless: this.options.headless,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    // Detect if running on WSL with Windows Chrome
+    let executablePath = undefined;
+
+    if (process.platform === 'linux') {
+      const windowsChrome = '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe';
+      if (fs.existsSync(windowsChrome)) {
+        executablePath = windowsChrome;
+        console.log('Using Windows Chrome on WSL');
+      }
+    }
+
+    // Windows Chrome on WSL needs special handling - try with CDP connect
+    if (process.platform === 'linux' && executablePath) {
+      // Try launching with different approach for WSL
+      try {
+        this.browser = await chromium.launch({
+          headless: true,
+          executablePath,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--remote-debugging-port=9222'
+          ]
+        });
+      } catch (e) {
+        // Fallback: don't use Windows Chrome
+        console.log('Windows Chrome failed, falling back to default');
+        executablePath = undefined;
+        this.browser = await chromium.launch({
+          headless: this.options.headless,
+          args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+      }
+    } else {
+      this.browser = await chromium.launch({
+        headless: this.options.headless,
+        executablePath,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+    }
     this.context = await this.browser.newContext({
       viewport: { width: 1440, height: 900 },
       ...(this.options.cookies && { cookies: this.options.cookies })
