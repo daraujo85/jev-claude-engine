@@ -21,38 +21,22 @@ export class BrowserAdapter {
     // Detect if running on WSL with Windows Chrome
     let executablePath = undefined;
 
-    if (process.platform === 'linux') {
-      const windowsChrome = '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe';
-      if (fs.existsSync(windowsChrome)) {
-        executablePath = windowsChrome;
-        console.log('Using Windows Chrome on WSL');
-      }
-    }
-
-    // Windows Chrome on WSL needs special handling - try with CDP connect
-    if (process.platform === 'linux' && executablePath) {
-      // Try launching with different approach for WSL
+    // Try to connect via CDP if endpoint is provided
+    if (this.options.cdpEndpoint) {
+      console.log(`Connecting to Chrome via CDP: ${this.options.cdpEndpoint}`);
       try {
-        this.browser = await chromium.launch({
-          headless: true,
-          executablePath,
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--remote-debugging-port=9222'
-          ]
-        });
+        this.browser = await chromium.connectOverCDP(this.options.cdpEndpoint);
       } catch (e) {
-        // Fallback: don't use Windows Chrome
-        console.log('Windows Chrome failed, falling back to default');
-        executablePath = undefined;
-        this.browser = await chromium.launch({
-          headless: this.options.headless,
-          args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+        console.log(`CDP connect failed: ${e.message}`);
+        throw e;
       }
+    } else if (process.platform === 'linux') {
+      // On Linux, use bundled Chromium (skip Windows Chrome detection)
+      console.log('Launching bundled Chromium on Linux');
+      this.browser = await chromium.launch({
+        headless: this.options.headless,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+      });
     } else {
       this.browser = await chromium.launch({
         headless: this.options.headless,
