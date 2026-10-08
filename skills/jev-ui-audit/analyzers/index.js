@@ -8,6 +8,7 @@ import { analyzeClipping } from './clipping.js';
 import { analyzeOverlap } from './overlap.js';
 import { analyzeVisibility } from './visibility.js';
 import { analyzeAccessibility } from './accessibility.js';
+import { analyzeTouchTargets } from './touch-target.js';
 
 export async function discoverRoutes(context) {
   const { page, baseUrl } = context;
@@ -39,28 +40,40 @@ export async function discoverRoutes(context) {
   return routes.length > 0 ? routes : ['/'];
 }
 
+/**
+ * Roda todos os analyzers e devolve findings + falhas. Um analyzer que quebra
+ * deixa o audit incompleto: quem chama precisa saber, senão o score sai 100 falso.
+ */
 export async function runAnalyzers(context) {
-  const allFindings = [];
+  const findings = [];
+  const failures = [];
 
-  // Run each analyzer
   const analyzers = [
     analyzeOverflow,
     analyzeClipping,
     analyzeOverlap,
     analyzeVisibility,
-    analyzeAccessibility
+    analyzeTouchTargets
   ];
+  if (context.config?.accessibility !== false) {
+    analyzers.push(analyzeAccessibility);
+  }
 
   for (const analyzer of analyzers) {
     try {
-      const findings = await analyzer(context);
-      allFindings.push(...findings);
+      findings.push(...await analyzer(context));
     } catch (err) {
       console.error(`Analyzer ${analyzer.name} failed:`, err.message);
+      failures.push({
+        analyzer: analyzer.name,
+        route: context.route,
+        viewport: context.viewport?.name,
+        error: err.message
+      });
     }
   }
 
-  return allFindings;
+  return { findings, failures };
 }
 
-export { analyzeOverflow, analyzeClipping, analyzeOverlap, analyzeVisibility, analyzeAccessibility };
+export { analyzeOverflow, analyzeClipping, analyzeOverlap, analyzeVisibility, analyzeAccessibility, analyzeTouchTargets };

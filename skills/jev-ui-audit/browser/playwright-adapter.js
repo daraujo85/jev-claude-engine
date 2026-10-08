@@ -109,10 +109,11 @@ export class BrowserAdapter {
   }
 
   async setViewport(width, height) {
-    if (!this.context) {
-      throw new Error('Browser context not initialized.');
+    if (!this.page) {
+      throw new Error('Page not initialized.');
     }
-    await this.context.setViewportSize({ width, height });
+    // setViewportSize vive em Page, não em BrowserContext
+    await this.page.setViewportSize({ width, height });
     return this;
   }
 

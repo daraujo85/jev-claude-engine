@@ -32,6 +32,15 @@ Prefira evidência determinística do browser sobre opinião visual.
 
 Quando um defeito é encontrado, retorne o menor bundle de evidências útil: route, viewport, elemento, medições, causa CSS provável.
 
+## Instalação
+
+Na raiz do `jev-claude-engine` (uma vez por máquina):
+
+```bash
+npm install                        # axe-core + playwright
+npx playwright install chromium    # baixa o Chromium headless usado pelo audit
+```
+
 ## Uso via CLI
 
 ```bash
@@ -47,14 +56,33 @@ jev ui-audit http://localhost:4200 --viewports mobile,desktop
 # Output JSON
 jev ui-audit http://localhost:4200 --json
 
-# Gate mode (falha se score < 80)
+# Gate mode (falha se score < 80 ou se algum analyzer falhou)
 jev ui-audit http://localhost:4200 --gate
+
+# Sem axe / sem Lighthouse (o Lighthouse ainda é simulado)
+jev ui-audit http://localhost:4200 --no-a11y --no-lighthouse
+
+# Logado
+jev ui-audit https://app.com --login-url https://app.com/login --username user@email.com --password '***'
 ```
+
+## Analyzers
+
+| Regra | Analyzer | Observação |
+|---|---|---|
+| `horizontal-overflow` | overflow | página mais larga que o viewport |
+| `content-clipping` | clipping | conteúdo cortado por `overflow: hidden/clip` (auto/scroll não conta) |
+| `element-overlap` | overlap | interativo tapado (≥15% da área) por outro elemento |
+| `collapsed-element` / `covered-element` | visibility | elemento com conteúdo e tamanho zero / interativo coberto no centro |
+| `touch-target-size` | touch-target | só em viewport touch: < 24px (medium) ou < 44px (low) |
+| `a11y-*` | accessibility | axe-core com as tags WCAG 2.0/2.1 A e AA |
+
+Analyzer que quebra **não some**: entra em `summary.failedAnalyzers`, o summary avisa
+"Audit INCOMPLETO" e o `--gate` reprova. Testes: `node --test tests/ui-audit.test.js`
+(usa `fixtures/test-page.html`).
 
 ## Output
 
-Gera relatório em `.jev/ui-audit/<run-id>/`:
-- `summary.json` — score e overview
-- `findings.json` — todos os findings
-- `report.html` — relatório HTML
-- `screenshots/` — screenshots por finding
+Gera `report.json` em `<--output>/<run-id>/` (padrão `.jev/ui-audit/`), com
+`summary` (score, `complete`, `failedAnalyzers`, contagem por severidade/categoria)
+e a lista de `findings`. Senha e cookie saem mascarados no `config` do relatório.

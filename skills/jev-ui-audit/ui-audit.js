@@ -6,12 +6,11 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { BrowserAdapter } from './browser/playwright-adapter.js';
-import { discoverRoutes, runAnalyzers, analyzeOverflow, analyzeClipping, analyzeOverlap, analyzeVisibility, analyzeAccessibility } from './analyzers/index.js';
+import { runAnalyzers } from './analyzers/index.js';
 import { discoverRoutesAdvanced } from './analyzers/route-discovery.js';
 import { analyzeLighthouse } from './analyzers/lighthouse.js';
-import { createFinding, SEVERITY, resetFindingCounter } from './findings/schema.js';
 import { reportJSON, printSummary } from './reporters/json.js';
 
 const DEFAULT_VIEWPORTS = [
@@ -92,7 +91,7 @@ function loadConfigFile(configPath) {
   return null;
 }
 
-function calculateScore(findings) {
+export function calculateScore(findings) {
   const penalties = {
     blocker: 25,
     critical: 15,
@@ -109,7 +108,7 @@ function calculateScore(findings) {
   return Math.max(0, Math.min(100, score));
 }
 
-function groupFindings(findings) {
+export function groupFindings(findings) {
   const bySeverity = {};
   const byCategory = {};
 
@@ -121,7 +120,7 @@ function groupFindings(findings) {
   return { bySeverity, byCategory };
 }
 
-async function auditUrl(url, config) {
+export async function auditUrl(url, config) {
   const browserOptions = {
     headless: true,
     loginUrl: config.loginUrl,
@@ -130,7 +129,8 @@ async function auditUrl(url, config) {
   };
   const browser = new BrowserAdapter(browserOptions);
   const allFindings = [];
-  const routes = config.routes || ['/'];
+  const failures = [];
+  const routes = config.routes ? [...config.routes] : ['/'];
 
   try {
     await browser.start();
@@ -147,10 +147,9 @@ async function auditUrl(url, config) {
       await browser.setCookies(cookies);
     }
 
-    await browser.open(url);
-
     // Auto-discover routes if not provided
     if (!config.routes) {
+      await browser.open(url);
       // Determine project dir from URL or current directory
       const projectDir = process.cwd();
       const discovered = await discoverRoutesAdvanced({
@@ -165,10 +164,11 @@ async function auditUrl(url, config) {
     // Audit each route
     for (const route of routes) {
       // Navigate to route
-      const fullUrl = route.startsWith('http') ? route : new URL(route, url).href;
-      if (route !== '/' && !route.startsWith('http')) {
-        await browser.open(fullUrl);
-      }
+      // '/' é a própria URL auditada (que pode ter caminho, ex. /app/page.html)
+      const fullUrl = route === '/' ? url
+        : route.startsWith('http') ? route
+        : new URL(route, url).href;
+      await browser.open(fullUrl);
 
       await browser.waitForStableState();
 
@@ -186,8 +186,9 @@ async function auditUrl(url, config) {
         };
 
         // Run analyzers
-        const findings = await runAnalyzers(context);
-        allFindings.push(...findings);
+        const run = await runAnalyzers(context);
+        allFindings.push(...run.findings);
+        failures.push(...run.failures);
 
         // Run Lighthouse if enabled
         if (config.lighthouse) {
@@ -200,7 +201,15 @@ async function auditUrl(url, config) {
     await browser.close();
   }
 
-  return allFindings;
+  return { findings: allFindings, failures, routes };
+}
+
+export function writeReport(results, outputDir) {
+  const runDir = path.join(outputDir, results.runId);
+  fs.mkdirSync(runDir, { recursive: true });
+  const reportPath = path.join(runDir, 'report.json');
+  reportJSON(results, { outputPath: reportPath });
+  return reportPath;
 }
 
 async function main() {
@@ -254,7 +263,7 @@ Examples:
   console.log(`🔍 Auditing: ${url}`);
 
   const startTime = Date.now();
-  const findings = await auditUrl(url, config);
+  const { findings, failures, routes } = await auditUrl(url, config);
   const duration = Date.now() - startTime;
 
   const score = calculateScore(findings);
@@ -268,20 +277,29 @@ Examples:
     findings,
     bySeverity,
     byCategory,
-    routes: config.routes || ['auto-discovered'],
+    complete: failures.length === 0,
+    failedAnalyzers: failures,
+    routes,
     viewports: config.viewports.map(v => v.name),
-    config,
+    config: { ...config, password: config.password ? '***' : undefined, cookie: config.cookie ? '***' : undefined },
     durationMs: duration
   };
+
+  const reportPath = writeReport(results, config.outputDir);
 
   // Output
   if (config.json) {
     console.log(reportJSON(results));
   } else {
     printSummary(results);
+    console.log(`Report: ${reportPath}`);
   }
 
-  // Exit code
+  // Exit code: audit incompleto nunca passa no gate
+  if (config.gate && !results.complete) {
+    console.log(`❌ Gate failed: ${failures.length} analyzer(s) falharam, audit incompleto`);
+    process.exit(1);
+  }
   if (config.gate && score < 80) {
     console.log(`❌ Gate failed: score ${score} < 80`);
     process.exit(1);
@@ -290,7 +308,10 @@ Examples:
   process.exit(0);
 }
 
-main().catch(err => {
-  console.error('Error:', err.message);
-  process.exit(2);
-});
+// Só roda a CLI quando executado direto (permite importar nos testes)
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
+  main().catch(err => {
+    console.error('Error:', err.message);
+    process.exit(2);
+  });
+}

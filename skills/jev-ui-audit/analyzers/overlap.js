@@ -4,14 +4,17 @@
  */
 
 import { createFinding, SEVERITY } from '../findings/schema.js';
+import { ensureDomHelpers } from './dom-helpers.js';
 
 export async function analyzeOverlap(context) {
   const { page, route, viewport } = context;
   const findings = [];
 
+  await ensureDomHelpers(page);
   const result = await page.evaluate(() => {
+    const { getSelector, isInteractive, isRendered, isOnTopAt } = window.__jevUiAudit;
     const findings = [];
-    const elements = Array.from(document.querySelectorAll('*'));
+    const elements = Array.from(document.body.querySelectorAll('*')).filter(isRendered);
 
     // Check pairs for overlap (sampled for performance)
     const sampleSize = Math.min(elements.length, 200);
@@ -30,6 +33,9 @@ export async function analyzeOverlap(context) {
 
         if (rect2.width < 5 || rect2.height < 5) continue;
 
+        // Ancestral/descendente sempre se sobrepõem: não é colisão
+        if (el1.contains(el2) || el2.contains(el1)) continue;
+
         // Check intersection
         const overlapX = Math.max(0, Math.min(rect1.right, rect2.right) - Math.max(rect1.left, rect2.left));
         const overlapY = Math.max(0, Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top, rect2.top));
@@ -46,7 +52,21 @@ export async function analyzeOverlap(context) {
           const isInteractive1 = isInteractive(el1);
           const isInteractive2 = isInteractive(el2);
 
-          if (isInteractive1 || isInteractive2) {
+          // Só é colisão se o interativo fica tapado no centro da interseção.
+          // Ícones/labels decorativos com pointer-events:none não contam
+          // (elementFromPoint os ignora), nem o interativo que está por cima.
+          const cx = Math.max(rect1.left, rect2.left) + overlapX / 2;
+          const cy = Math.max(rect1.top, rect2.top) + overlapY / 2;
+          const obscured1 = isInteractive1 && !isOnTopAt(el1, cx, cy);
+          const obscured2 = isInteractive2 && !isOnTopAt(el2, cx, cy);
+          // Fração tapada do interativo: ícone dentro de input (~5%) é padrão,
+          // botão sob overlay (~100%) é bug
+          const coveredRatio = Math.max(
+            obscured1 ? overlapArea / area1 : 0,
+            obscured2 ? overlapArea / area2 : 0
+          );
+
+          if (coveredRatio >= 0.15) {
             findings.push({
               element1: {
                 tag: el1.tagName.toLowerCase(),
@@ -62,7 +82,8 @@ export async function analyzeOverlap(context) {
               },
               overlapX,
               overlapY,
-              overlapArea
+              overlapArea,
+              coveredRatio: Math.round(coveredRatio * 100) / 100
             });
           }
         }
@@ -86,32 +107,13 @@ export async function analyzeOverlap(context) {
       metrics: {
         overlapX: item.overlapX,
         overlapY: item.overlapY,
-        overlapArea: item.overlapArea
+        overlapArea: item.overlapArea,
+        coveredRatio: item.coveredRatio
       }
     }));
   }
 
   return findings;
-}
-
-function isInteractive(el) {
-  const tag = el.tagName.toLowerCase();
-  const role = el.getAttribute('role');
-  return ['button', 'a', 'input', 'select', 'textarea'].includes(tag) ||
-         ['button', 'link', 'checkbox', 'radio', 'menuitem'].includes(role) ||
-         el.hasAttribute('onclick') ||
-         el.hasAttribute('onchange');
-}
-
-function getSelector(el) {
-  if (el.id) return `#${el.id}`;
-  if (el.className && typeof el.className === 'string') {
-    const classes = el.className.trim().split(/\s+/).slice(0, 2);
-    if (classes[0]) {
-      return `${el.tagName.toLowerCase()}.${classes[0]}`;
-    }
-  }
-  return el.tagName.toLowerCase();
 }
 
 export default analyzeOverlap;

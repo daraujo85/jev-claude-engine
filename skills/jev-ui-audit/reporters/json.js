@@ -15,6 +15,8 @@ export function reportJSON(results, options = {}) {
     baseUrl: results.baseUrl,
     summary: {
       score: results.score,
+      complete: results.complete ?? true,
+      failedAnalyzers: results.failedAnalyzers || [],
       totalFindings: results.findings.length,
       bySeverity: results.bySeverity,
       byCategory: results.byCategory
@@ -58,6 +60,15 @@ export function printSummary(results) {
   }
 
   console.log('└─────────────────────────────────────────────────────────────┘\n');
+
+  const failed = results.failedAnalyzers || [];
+  if (failed.length > 0) {
+    console.log(`⛔ Audit INCOMPLETO: ${failed.length} analyzer(s) falharam (score não é confiável)`);
+    for (const f of failed.slice(0, 10)) {
+      console.log(`  ${f.analyzer} @ ${f.route} ${f.viewport || ''}: ${f.error}`);
+    }
+    console.log('');
+  }
 
   // Print top findings
   const critical = findings.filter(f => f.severity === 'critical' || f.severity === 'blocker');

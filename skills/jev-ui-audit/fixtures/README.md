@@ -4,23 +4,26 @@ Fixtures for testing jev-ui-audit detection rules.
 
 ## Running Tests
 
-1. Start a local server:
+Automatizado (Playwright + Chromium instalados):
 ```bash
-npx serve .
+node --test tests/ui-audit.test.js   # na raiz do jev-claude-engine
 ```
 
-2. Run audit:
+Manual:
 ```bash
-jev ui-audit http://localhost:3000/test-page.html --viewports mobile
+python3 -m http.server 8765          # nesta pasta
+jev ui-audit http://127.0.0.1:8765/test-page.html --routes / --viewports mobile --no-lighthouse
 ```
 
-## Expected Findings
+## Expected Findings (mobile)
 
-| Rule | Expected Severity |
-|------|------------------|
-| horizontal-overflow | critical |
-| content-clipping | medium |
-| collapsed-element | medium |
-| element-overlap | high |
-| a11y-image-alt | medium |
-| touch-target-size | medium |
+| Rule | Expected Severity | Elemento |
+|------|------------------|----------|
+| horizontal-overflow | critical | `.overflow-container` (min-width 500px) |
+| content-clipping | high | `.clipped-dropdown` |
+| collapsed-element | medium | `.collapsed-sidebar` (width 0) |
+| covered-element | high | `.covered-button` sob `.floating-overlay` |
+| element-overlap | high | `.covered-button` × `.floating-overlay` |
+| touch-target-size | low | `.small-touch-target` (< 44px) |
+| a11y-image-alt | critical | `img` sem `alt` |
+| a11y-color-contrast | high | botões com texto branco em fundo claro |

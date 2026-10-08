@@ -4,12 +4,15 @@
  */
 
 import { createFinding, SEVERITY } from '../findings/schema.js';
+import { ensureDomHelpers } from './dom-helpers.js';
 
 export async function analyzeOverflow(context) {
   const { page, route, viewport } = context;
   const findings = [];
 
+  await ensureDomHelpers(page);
   const result = await page.evaluate((vp) => {
+    const { getSelector } = window.__jevUiAudit;
     const docEl = document.documentElement;
     const scrollWidth = docEl.scrollWidth;
     const clientWidth = docEl.clientWidth;
@@ -69,17 +72,6 @@ export async function analyzeOverflow(context) {
   }
 
   return findings;
-}
-
-function getSelector(el) {
-  if (el.id) return `#${el.id}`;
-  if (el.className && typeof el.className === 'string') {
-    const classes = el.className.trim().split(/\s+/).slice(0, 2);
-    if (classes[0]) {
-      return `${el.tagName.toLowerCase()}.${classes[0]}`;
-    }
-  }
-  return el.tagName.toLowerCase();
 }
 
 export default analyzeOverflow;

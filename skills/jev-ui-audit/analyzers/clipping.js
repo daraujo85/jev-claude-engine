@@ -4,12 +4,15 @@
  */
 
 import { createFinding, SEVERITY } from '../findings/schema.js';
+import { ensureDomHelpers } from './dom-helpers.js';
 
 export async function analyzeClipping(context) {
   const { page, route, viewport } = context;
   const findings = [];
 
+  await ensureDomHelpers(page);
   const result = await page.evaluate(() => {
+    const { getSelector } = window.__jevUiAudit;
     const findings = [];
 
     const allElements = Array.from(document.querySelectorAll('*'));
@@ -22,8 +25,9 @@ export async function analyzeClipping(context) {
       const overflowX = style.overflowX;
       const overflowY = style.overflowY;
 
-      if (!['hidden', 'clip', 'auto', 'scroll'].includes(overflowX) &&
-          !['hidden', 'clip', 'auto', 'scroll'].includes(overflowY)) {
+      // auto/scroll são containers roláveis intencionais, não clipping
+      if (!['hidden', 'clip'].includes(overflowX) &&
+          !['hidden', 'clip'].includes(overflowY)) {
         continue;
       }
 
@@ -88,17 +92,6 @@ export async function analyzeClipping(context) {
   }
 
   return findings;
-}
-
-function getSelector(el) {
-  if (el.id) return `#${el.id}`;
-  if (el.className && typeof el.className === 'string') {
-    const classes = el.className.trim().split(/\s+/).slice(0, 2);
-    if (classes[0]) {
-      return `${el.tagName.toLowerCase()}.${classes[0]}`;
-    }
-  }
-  return el.tagName.toLowerCase();
 }
 
 export default analyzeClipping;

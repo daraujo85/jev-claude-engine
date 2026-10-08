@@ -4,60 +4,74 @@
  */
 
 import { createFinding, SEVERITY } from '../findings/schema.js';
+import { ensureDomHelpers } from './dom-helpers.js';
 
 export async function analyzeVisibility(context) {
   const { page, route, viewport } = context;
   const findings = [];
 
+  await ensureDomHelpers(page);
   const result = await page.evaluate((vp) => {
+    const { getSelector, isInteractive, isNonVisual } = window.__jevUiAudit;
     const findings = [];
-    const elements = Array.from(document.querySelectorAll('*'));
+    const elements = Array.from(document.body.querySelectorAll('*'));
 
     for (const el of elements) {
       const style = window.getComputedStyle(el);
       const rect = el.getBoundingClientRect();
 
-      // Skip tiny elements
-      if (rect.width < 5 || rect.height < 5) continue;
+      if (isNonVisual(el)) continue;
 
       // Skip hidden elements
-      if (style.display === 'none' || style.visibility === 'hidden') {
+      if (style.display === 'none' || style.display === 'contents' || style.visibility === 'hidden') {
         continue; // Expected behavior
       }
 
-      // Check for zero-size rendered elements
+      // Zero-size rendered elements que têm conteúdo (antes do filtro de tamanho,
+      // senão nunca dispara). Reporta só o topo: filho de colapsado é ruído.
       if (rect.width === 0 || rect.height === 0) {
-        findings.push({
-          type: 'zero-size',
-          tag: el.tagName.toLowerCase(),
-          id: el.id || null,
-          textPreview: el.textContent?.slice(0, 30) || null,
-          selector: getSelector(el),
-          style: { display: style.display, visibility: style.visibility }
-        });
+        const parentRect = el.parentElement?.getBoundingClientRect();
+        const parentCollapsed = parentRect && (parentRect.width === 0 || parentRect.height === 0);
+        if (!parentCollapsed && el.textContent?.trim()) {
+          findings.push({
+            type: 'zero-size',
+            tag: el.tagName.toLowerCase(),
+            id: el.id || null,
+            textPreview: el.textContent.trim().slice(0, 30),
+            selector: getSelector(el),
+            style: { display: style.display, visibility: style.visibility, width: rect.width, height: rect.height }
+          });
+        }
         continue;
       }
+
+      // Skip tiny elements
+      if (rect.width < 5 || rect.height < 5) continue;
 
       // Check if element is rendered off-screen
       const isOffScreen = rect.right < 0 || rect.bottom < 0 ||
                           rect.left > vp.width || rect.top > vp.height;
 
-      // Skip elements intentionally below the fold
-      if (isOffScreen && rect.top > vp.height * 0.5) continue;
+      // elementFromPoint só enxerga o viewport atual
+      if (isOffScreen) continue;
 
-      // Check if covered by other elements (z-index check)
-      const isCovered = document.elementFromPoint(
+      // Check if covered by other elements (z-index check). Acertar um
+      // descendente do próprio elemento não é cobertura.
+      const hit = document.elementFromPoint(
         rect.left + rect.width / 2,
         rect.top + rect.height / 2
-      ) !== el;
+      );
+      const isCovered = hit !== null && hit !== el && !el.contains(hit);
 
-      if (isCovered && style.position !== 'static') {
+      // Cobertura só importa para o que o usuário precisa clicar
+      if (isCovered && isInteractive(el) && style.pointerEvents !== 'none') {
         findings.push({
           type: 'covered',
           tag: el.tagName.toLowerCase(),
           id: el.id || null,
           textPreview: el.textContent?.slice(0, 30) || null,
           selector: getSelector(el),
+          coveredBy: getSelector(hit),
           position: style.position,
           zIndex: style.zIndex
         });
@@ -83,22 +97,11 @@ export async function analyzeVisibility(context) {
       message: item.type === 'zero-size'
         ? `Element has zero dimensions but is rendered`
         : `Element may be covered by another element`,
-      metrics: item.style || {}
+      metrics: item.style || { coveredBy: item.coveredBy, position: item.position, zIndex: item.zIndex }
     }));
   }
 
   return findings;
-}
-
-function getSelector(el) {
-  if (el.id) return `#${el.id}`;
-  if (el.className && typeof el.className === 'string') {
-    const classes = el.className.trim().split(/\s+/).slice(0, 2);
-    if (classes[0]) {
-      return `${el.tagName.toLowerCase()}.${classes[0]}`;
-    }
-  }
-  return el.tagName.toLowerCase();
 }
 
 export default analyzeVisibility;
