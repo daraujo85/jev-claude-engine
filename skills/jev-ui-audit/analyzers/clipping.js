@@ -27,21 +27,25 @@ export async function analyzeClipping(context) {
     function straddles(box, r) {
       return (r.left < box.left - 1 && r.right > box.left + 1) || (r.left < box.right - 1 && r.right > box.right + 1);
     }
-    // Lista o que ficou cortado (vazia = nada real escondido). Guarda só o
-    // elemento mais externo de cada trecho, com texto, pra evidência legível.
+    // Lista o que ficou cortado (vazia = nada real escondido). Sobe cada
+    // pedaço até a unidade legível (link, botão, item, parágrafo) e descarta o
+    // wrapper que só contém outras unidades, pra evidência dizer o que sumiu.
+    const UNIT = 'a,button,input,select,textarea,li,label,p,h1,h2,h3,h4,h5,h6,img';
     function cutContent(container, axis) {
       const box = container.getBoundingClientRect();
-      const cut = [];
-      if (directTextRects(container).some(r => outside(box, r, axis))) cut.push(container);
+      const units = new Set();
+      if (directTextRects(container).some(r => outside(box, r, axis))) units.add(container);
       for (const d of container.querySelectorAll('*')) {
         const r = d.getBoundingClientRect();
         if (r.width === 0 || r.height === 0) continue;
         if ((axis === 'y' ? outside(box, r, 'y') : straddles(box, r)) ||
             (axis === 'x' && directTextRects(d).some(t => straddles(box, t)))) {
-          if (!cut.some(c => c !== container && c.contains(d))) cut.push(d);
+          const u = d.closest(UNIT);
+          units.add(u && container.contains(u) && u !== container ? u : d);
         }
       }
-      return cut;
+      const list = [...units];
+      return list.filter(u => u === container || !list.some(o => o !== u && u.contains(o)));
     }
     function describe(els) {
       return els.map(e => (e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 30)
