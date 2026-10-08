@@ -22,9 +22,42 @@ export class BrowserAdapter {
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     this.context = await this.browser.newContext({
-      viewport: { width: 1440, height: 900 }
+      viewport: { width: 1440, height: 900 },
+      ...(this.options.cookies && { cookies: this.options.cookies })
     });
     this.page = await this.context.newPage();
+
+    // Run setup script if provided (e.g., login)
+    if (this.options.setupScript) {
+      await this.page.addScriptTag({ content: this.options.setupScript });
+    }
+
+    return this;
+  }
+
+  async setCookies(cookies) {
+    if (!this.context) throw new Error('Browser not started');
+    await this.context.addCookies(cookies);
+    return this;
+  }
+
+  async authenticate(username, password, loginUrl, selectors = {}) {
+    if (!this.page) throw new Error('Browser not started');
+
+    const loginPage = loginUrl || this.options.loginUrl;
+    if (!loginPage) throw new Error('No loginUrl provided');
+
+    await this.page.goto(loginPage, { waitUntil: 'networkidle' });
+
+    const emailSel = selectors.email || 'input[type="email"], input[name="email"], input[id="email"]';
+    const passSel = selectors.password || 'input[type="password"], input[name="password"], input[id="password"]';
+    const submitSel = selectors.submit || 'button[type="submit"], button:has-text("Entrar"), button:has-text("Login")';
+
+    await this.page.fill(emailSel, username);
+    await this.page.fill(passSel, password);
+    await this.page.click(submitSel);
+    await this.page.waitForLoadState('networkidle');
+
     return this;
   }
 

@@ -52,6 +52,14 @@ function parseArgs(args) {
       config.accessibility = false;
     } else if (arg === '--output' && args[i + 1]) {
       config.outputDir = args[++i];
+    } else if (arg === '--login-url' && args[i + 1]) {
+      config.loginUrl = args[++i];
+    } else if (arg === '--username' && args[i + 1]) {
+      config.username = args[++i];
+    } else if (arg === '--password' && args[i + 1]) {
+      config.password = args[++i];
+    } else if (arg === '--cookie' && args[i + 1]) {
+      config.cookie = args[++i];
     }
   }
 
@@ -88,12 +96,31 @@ function groupFindings(findings) {
 }
 
 async function auditUrl(url, config) {
-  const browser = new BrowserAdapter({ headless: true });
+  const browserOptions = {
+    headless: true,
+    loginUrl: config.loginUrl,
+    username: config.username,
+    password: config.password
+  };
+  const browser = new BrowserAdapter(browserOptions);
   const allFindings = [];
   const routes = config.routes || ['/'];
 
   try {
     await browser.start();
+
+    // Authenticate if credentials provided
+    if (config.username && config.password && config.loginUrl) {
+      await browser.authenticate(config.username, config.password, config.loginUrl);
+    } else if (config.cookie) {
+      // Parse cookie string (name=value; name2=value2)
+      const cookies = config.cookie.split(';').map(c => {
+        const [name, ...v] = c.split('=');
+        return { name: name.trim(), value: v.join('=').trim(), domain: new URL(url).hostname };
+      });
+      await browser.setCookies(cookies);
+    }
+
     await browser.open(url);
 
     // Auto-discover routes if not provided
@@ -161,10 +188,18 @@ Options:
   --no-a11y           Disable accessibility analysis
   --output <dir>      Output directory (default: .jev/ui-audit)
 
+Authentication:
+  --login-url <url>   Login page URL
+  --username <user>   Login username/email
+  --password <pass>   Login password
+  --cookie <string>    Session cookie (name=value;name2=value2)
+
 Examples:
   jev-ui-audit http://localhost:4200
   jev-ui-audit http://localhost:4200 --routes /,/login,/dashboard
   jev-ui-audit http://localhost:4200 --viewports mobile,desktop --json
+  jev-ui-audit https://app.com --login-url https://app.com/login --username user@email.com --password secret
+  jev-ui-audit https://app.com --cookie "session=abc123;token=xyz789"
 `);
     return;
   }
