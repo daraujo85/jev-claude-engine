@@ -1,0 +1,35 @@
+{
+  "description": "Mapeamento técnico do jev-claude-engine para blog/video Garagem do Código",
+  "milestones": [
+    {
+      "id": "clone-repo",
+      "title": "Clonar repositório",
+      "status": "done"
+    },
+    {
+      "id": "read-docs",
+      "title": "Ler README e arquitetura",
+      "status": "done"
+    },
+    {
+      "id": "map-components",
+      "title": "Mapear componentes centrais",
+      "status": "done"
+    },
+    {
+      "id": "write-handoff",
+      "title": "Escrever handoff markdown",
+      "status": "done"
+    },
+    {
+      "id": "create-json",
+      "title": "Criar JSON de handoff",
+      "status": "done"
+    },
+    {
+      "id": "commit-share",
+      "title": "Commit e compartilhar",
+      "status": "done"
+    }
+  ]
+}

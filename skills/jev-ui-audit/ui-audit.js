@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { BrowserAdapter } from './browser/playwright-adapter.js';
 import { discoverRoutes, runAnalyzers, analyzeOverflow, analyzeClipping, analyzeOverlap, analyzeVisibility, analyzeAccessibility } from './analyzers/index.js';
+import { discoverRoutesAdvanced } from './analyzers/route-discovery.js';
 import { analyzeLighthouse } from './analyzers/lighthouse.js';
 import { createFinding, SEVERITY, resetFindingCounter } from './findings/schema.js';
 import { reportJSON, printSummary } from './reporters/json.js';
@@ -60,10 +61,35 @@ function parseArgs(args) {
       config.password = args[++i];
     } else if (arg === '--cookie' && args[i + 1]) {
       config.cookie = args[++i];
+    } else if (arg === '--config' && args[i + 1]) {
+      const configFile = args[++i];
+      const fileConfig = loadConfigFile(configFile);
+      Object.assign(config, fileConfig);
+    }
+  }
+
+  // Try to load .jev/ui-audit.json from current dir if no explicit config
+  if (!config.configLoaded) {
+    const localConfig = loadConfigFile('.jev/ui-audit.json');
+    if (localConfig) {
+      Object.assign(config, localConfig);
     }
   }
 
   return { urls, config };
+}
+
+function loadConfigFile(configPath) {
+  try {
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      console.log(`Loaded config from: ${configPath}`);
+      return { ...data, configLoaded: true };
+    }
+  } catch (err) {
+    console.error(`Failed to load config from ${configPath}:`, err.message);
+  }
+  return null;
 }
 
 function calculateScore(findings) {
@@ -125,7 +151,14 @@ async function auditUrl(url, config) {
 
     // Auto-discover routes if not provided
     if (!config.routes) {
-      const discovered = await discoverRoutes({ page: browser.page, baseUrl: url });
+      // Determine project dir from URL or current directory
+      const projectDir = process.cwd();
+      const discovered = await discoverRoutesAdvanced({
+        baseUrl: url,
+        projectDir,
+        config,
+        page: browser.page
+      });
       routes.push(...discovered);
     }
 
@@ -187,6 +220,11 @@ Options:
   --no-lighthouse      Disable Lighthouse analysis
   --no-a11y           Disable accessibility analysis
   --output <dir>      Output directory (default: .jev/ui-audit)
+  --config <file>     Load config from file (.jev/ui-audit.json)
+
+Route Discovery:
+  Auto-discovers from: DOM links, sitemap.xml, framework route files
+  Also reads .jev/ui-audit.json for explicit routes
 
 Authentication:
   --login-url <url>   Login page URL
@@ -200,6 +238,7 @@ Examples:
   jev-ui-audit http://localhost:4200 --viewports mobile,desktop --json
   jev-ui-audit https://app.com --login-url https://app.com/login --username user@email.com --password secret
   jev-ui-audit https://app.com --cookie "session=abc123;token=xyz789"
+  jev-ui-audit https://app.com --config .jev/ui-audit.json
 `);
     return;
   }
