@@ -12,7 +12,7 @@ export async function analyzeOverflow(context) {
 
   await ensureDomHelpers(page);
   const result = await page.evaluate((vp) => {
-    const { getSelector } = window.__jevUiAudit;
+    const { getSelector, isRendered, clipRect, visibleTextRects } = window.__jevUiAudit;
     const docEl = document.documentElement;
     const scrollWidth = docEl.scrollWidth;
     const clientWidth = docEl.clientWidth;
@@ -22,21 +22,45 @@ export async function analyzeOverflow(context) {
       return { hasOverflow: false };
     }
 
-    // Find elements extending beyond viewport
-    const allElements = Array.from(document.querySelectorAll('*'));
-    const overflowingElements = allElements.filter(el => {
-      const rect = el.getBoundingClientRect();
-      return rect.right > vp.width && rect.width > 0;
-    });
-
-    // Find the likely root cause (first overflowing element in DOM tree)
+    // Causa provável: o primeiro elemento (ordem do DOM) que passa da borda
+    // DEPOIS do corte dos ancestrais. Filho de container rolável/hidden não
+    // estoura a página, mesmo que sua caixa passe do viewport.
     let rootElement = null;
-    for (const el of overflowingElements) {
+    for (const el of document.body.querySelectorAll('*')) {
+      if (!isRendered(el)) continue;
       const rect = el.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        rootElement = el;
-        break;
-      }
+      if (rect.width === 0 || rect.height === 0) continue;
+      const boxOut = rect.right > clientWidth && clipRect(el).right > clientWidth;
+      // Texto que vaza da própria caixa (white-space: pre/nowrap) também estoura
+      const textOut = !boxOut && visibleTextRects(el).some(r => r.right > clientWidth + 1);
+      if (!boxOut && !textOut) continue;
+      rootElement = el;
+      break;
+    }
+
+    // Raiz com largura ditada pelo conteúdo (fieldset tem min-width:
+    // min-content; inline-block/table encolhem e crescem com os filhos) só
+    // estoura porque algum descendente força. Desce pela cadeia de filhos que
+    // estouram enquanto eles apenas preenchem o pai, até quem tem largura própria.
+    const CONTENT_SIZED = /^(inline-block|inline-flex|inline-grid|table|inline-table|table-cell)$/;
+    const contentSized = el => {
+      const s = window.getComputedStyle(el);
+      return s.minWidth === 'min-content' || CONTENT_SIZED.test(s.display);
+    };
+    const contentWidth = el => {
+      const s = window.getComputedStyle(el);
+      return el.clientWidth - (parseFloat(s.paddingLeft) || 0) - (parseFloat(s.paddingRight) || 0);
+    };
+    let follow = rootElement && contentSized(rootElement);
+    while (follow) {
+      const kids = Array.from(rootElement.children).filter(k =>
+        isRendered(k) && k.getBoundingClientRect().right > clientWidth && clipRect(k).right > clientWidth);
+      if (kids.length === 0) break;
+      const parentWidth = contentWidth(rootElement);
+      rootElement = kids.reduce((a, b) =>
+        b.getBoundingClientRect().right > a.getBoundingClientRect().right ? b : a);
+      follow = contentSized(rootElement) ||
+        Math.abs(rootElement.getBoundingClientRect().width - parentWidth) < 1;
     }
 
     return {

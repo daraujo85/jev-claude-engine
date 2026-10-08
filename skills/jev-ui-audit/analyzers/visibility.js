@@ -12,7 +12,7 @@ export async function analyzeVisibility(context) {
 
   await ensureDomHelpers(page);
   const result = await page.evaluate((vp) => {
-    const { getSelector, isInteractive, isNonVisual, isRevealableByScroll } = window.__jevUiAudit;
+    const { getSelector, isInteractive, isNonVisual, isRendered, isRevealableByScroll, scrollBlocker, isVisibleAt } = window.__jevUiAudit;
     const findings = [];
     const elements = Array.from(document.body.querySelectorAll('*'));
 
@@ -23,7 +23,7 @@ export async function analyzeVisibility(context) {
       if (isNonVisual(el)) continue;
 
       // Skip hidden elements
-      if (style.display === 'none' || style.display === 'contents' || style.visibility === 'hidden') {
+      if (style.display === 'contents' || !isRendered(el)) {
         continue; // Expected behavior
       }
 
@@ -52,15 +52,35 @@ export async function analyzeVisibility(context) {
       const isOffScreen = rect.right < 0 || rect.bottom < 0 ||
                           rect.left > vp.width || rect.top > vp.height;
 
-      // elementFromPoint só enxerga o viewport atual
-      if (isOffScreen) continue;
+      // Fora do viewport atual: elementFromPoint não enxerga, mas uma barra
+      // fixa/sticky pode tapá-lo em qualquer posição de scroll
+      if (isOffScreen) {
+        const blocker = isInteractive(el) && style.pointerEvents !== 'none' &&
+          rect.right > 0 && rect.left < vp.width ? scrollBlocker(el) : null;
+        if (blocker) {
+          findings.push({
+            type: 'covered',
+            tag: el.tagName.toLowerCase(),
+            id: el.id || null,
+            textPreview: el.textContent?.trim().slice(0, 30) || null,
+            selector: getSelector(el),
+            coveredBy: getSelector(blocker),
+            position: style.position,
+            zIndex: style.zIndex,
+            unreachable: true
+          });
+        }
+        continue;
+      }
 
       // Check if covered by other elements (z-index check). Acertar um
       // descendente do próprio elemento não é cobertura.
-      const hit = document.elementFromPoint(
-        rect.left + rect.width / 2,
-        rect.top + rect.height / 2
-      );
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      // Centro cortado por um ancestral com overflow: é clipping (o analyzer
+      // de clipping reporta o container), não cobertura
+      if (!isVisibleAt(el, cx, cy)) continue;
+      const hit = document.elementFromPoint(cx, cy);
       const isCovered = hit !== null && hit !== el && !el.contains(hit) && !isRevealableByScroll(el, hit);
 
       // Cobertura só importa para o que o usuário precisa clicar
@@ -95,9 +115,11 @@ export async function analyzeVisibility(context) {
         selector: item.selector
       },
       message: item.type === 'zero-size'
-        ? `Element has zero dimensions but is rendered`
-        : `Element may be covered by another element`,
-      metrics: item.style || { coveredBy: item.coveredBy, position: item.position, zIndex: item.zIndex }
+        ? `${item.selector} tem conteúdo mas tamanho zero`
+        : item.unreachable
+          ? `${item.selector} fica sob ${item.coveredBy} em qualquer posição de scroll`
+          : `${item.selector} coberto por ${item.coveredBy}`,
+      metrics: item.style || { coveredBy: item.coveredBy, position: item.position, zIndex: item.zIndex, unreachable: Boolean(item.unreachable) }
     }));
   }
 

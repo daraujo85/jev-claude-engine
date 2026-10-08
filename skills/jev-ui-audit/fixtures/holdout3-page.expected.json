@@ -1,0 +1,39 @@
+{
+  "fixture": "holdout3-page.html",
+  "viewports": {
+    "mobile": [
+      "horizontal-overflow pre.log",
+      "touch-target-size button.menu",
+      "touch-target-size button.exportar",
+      "covered-element button.carregar-mais",
+      "small-text p.kpi-legenda",
+      "content-clipping section.card-grafico",
+      "broken-image img.avatar-user",
+      "text-overlap span.status",
+      "placeholder-as-label input.filtro-data",
+      "a11y-button-name .fechar",
+      "a11y-image-alt .grafico-png"
+    ],
+    "tablet": [
+      "touch-target-size button.exportar",
+      "touch-target-size button.menu",
+      "small-text p.kpi-legenda",
+      "content-clipping section.card-grafico",
+      "broken-image img.avatar-user",
+      "text-overlap span.status",
+      "placeholder-as-label input.filtro-data",
+      "a11y-button-name .fechar",
+      "a11y-image-alt .grafico-png"
+    ],
+    "desktop": [
+      "covered-element button.salvar",
+      "small-text p.kpi-legenda",
+      "content-clipping section.card-grafico",
+      "broken-image img.avatar-user",
+      "text-overlap span.status",
+      "placeholder-as-label input.filtro-data",
+      "a11y-button-name .fechar",
+      "a11y-image-alt .grafico-png"
+    ]
+  }
+}

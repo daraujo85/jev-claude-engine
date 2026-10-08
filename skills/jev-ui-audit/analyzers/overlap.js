@@ -12,7 +12,8 @@ export async function analyzeOverlap(context) {
 
   await ensureDomHelpers(page);
   const result = await page.evaluate(() => {
-    const { getSelector, isInteractive, isRendered, isOnTopAt, isRevealableByScroll } = window.__jevUiAudit;
+    const { getSelector, isInteractive, isRendered, isOnTopAt, isRevealableByScroll,
+            isTextEntry, contentBox, intersect, isVisibleAt } = window.__jevUiAudit;
     const findings = [];
     const elements = Array.from(document.body.querySelectorAll('*')).filter(isRendered);
 
@@ -57,18 +58,46 @@ export async function analyzeOverlap(context) {
           // (elementFromPoint os ignora), nem o interativo que está por cima.
           const cx = Math.max(rect1.left, rect2.left) + overlapX / 2;
           const cy = Math.max(rect1.top, rect2.top) + overlapY / 2;
-          const obscured1 = isInteractive1 && !isOnTopAt(el1, cx, cy) && !isRevealableByScroll(el1, el2);
-          const obscured2 = isInteractive2 && !isOnTopAt(el2, cx, cy) && !isRevealableByScroll(el2, el1);
+          // Interativo cortado por ancestral com overflow nesse ponto não está
+          // tapado, está cortado (o analyzer de clipping reporta o container)
+          // O culpado tem que ser o outro elemento do par: se o ponto cai num
+          // terceiro (header fixo, overlay), não é colisão deste par
+          const hit = document.elementFromPoint(cx, cy);
+          const obscured1 = isInteractive1 && isVisibleAt(el1, cx, cy) && !isOnTopAt(el1, cx, cy) &&
+            hit !== null && el2.contains(hit) && !isRevealableByScroll(el1, el2);
+          const obscured2 = isInteractive2 && isVisibleAt(el2, cx, cy) && !isOnTopAt(el2, cx, cy) &&
+            hit !== null && el1.contains(hit) && !isRevealableByScroll(el2, el1);
           // Fração tapada do interativo: ícone dentro de input (~5%) é padrão,
           // botão sob overlay (~100%) é bug
           const coveredRatio = Math.max(
             obscured1 ? overlapArea / area1 : 0,
             obscured2 ? overlapArea / area2 : 0
           );
+          // Campo de texto: o que importa não é a fração, é se o outro elemento
+          // invade a área do texto digitado (ícone no padding é design; botão
+          // sobre o texto, não)
+          const intrudes = (field, other) => {
+            if (!isTextEntry(field)) return null;
+            const f = field.getBoundingClientRect();
+            const o = other.getBoundingClientRect();
+            // Adorno do tamanho de ícone inteiro dentro do campo (olho da senha,
+            // limpar busca) é intencional: decide pela fração, como antes
+            const adornment = o.width <= 32 && o.height <= 32 &&
+              o.left >= f.left && o.right <= f.right && o.top >= f.top && o.bottom <= f.bottom;
+            if (adornment) return null;
+            const hit = intersect(contentBox(field), o);
+            return Boolean(hit && hit.right - hit.left > 4 && hit.bottom - hit.top > 4);
+          };
+          const text1 = obscured1 ? intrudes(el1, el2) : null;
+          const text2 = obscured2 ? intrudes(el2, el1) : null;
+          const isBug = text1 === true || text2 === true ||
+            (text1 === null && text2 === null && coveredRatio >= 0.15) ||
+            (coveredRatio >= 0.15 && ((obscured1 && text1 === null) || (obscured2 && text2 === null)));
 
-          if (coveredRatio >= 0.15) {
+          if (isBug) {
             // element1 = o interativo tapado; element2 = quem está por cima
-            const victimFirst = obscured1 && (!obscured2 || overlapArea / area1 >= overlapArea / area2);
+            const victimFirst = text1 === true || (text2 !== true && obscured1 &&
+              (!obscured2 || overlapArea / area1 >= overlapArea / area2));
             findings.push({
               element1: {
                 tag: el1.tagName.toLowerCase(),

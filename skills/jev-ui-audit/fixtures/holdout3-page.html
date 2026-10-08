@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Holdout 3 - painel administrativo</title>
+<style>
+  /* Terceira rodada às cegas: gabarito escrito antes da primeira execução. */
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: system-ui, sans-serif; font-size: 16px; color: #222; background: #fff; }
+  button, input, select { min-height: 48px; font-size: 16px; }
+  main { padding: 16px; }
+  section { margin-bottom: 24px; }
+
+  /* ===== CONTROLES ===== */
+  .topo { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid #ddd; }
+  .busca { position: relative; flex: 1 1 200px; min-width: 0; }
+  .busca svg { position: absolute; left: 12px; top: 16px; pointer-events: none; }     /* K1 ícone no padding */
+  .busca input { width: 100%; padding-left: 40px; }
+  .lateral { position: fixed; top: 0; left: 0; width: 220px; height: 100%; background: #1f2937; transform: translateX(-100%); } /* K2 off-canvas */
+  .lateral a { display: block; padding: 14px 16px; color: #fff; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .kpis div { padding: 12px; background: #f3f4f6; }
+  .tabela { overflow-x: auto; }                                                         /* K3 tabela rolável */
+  .tabela table { width: 900px; border-collapse: collapse; }
+  .tabela td, .tabela th { padding: 8px; border: 1px solid #ddd; text-align: left; }
+  .cliente { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* K4 ellipsis */
+  .switch { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; } /* K5 toggle customizado */
+  .switch input { position: absolute; opacity: 0; width: 40px; height: 24px; margin: 0; min-height: 0; }
+  .switch .trilho { width: 40px; height: 24px; border-radius: 12px; background: #999; pointer-events: none; }
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); }     /* K6 modal fechado */
+  .log { white-space: pre; font-family: monospace; font-size: 13px; background: #f9fafb; padding: 8px; }
+  .fechar { width: 48px; height: 48px; background: none; border: 1px solid #ccc; }
+
+  /* ===== BUGS EM TODOS OS VIEWPORTS ===== */
+  .kpi-legenda { font-size: 11px; color: #555; }                                         /* B1 11px */
+  .exportar { min-height: 0; height: 32px; padding: 0 12px; }                            /* B2 alvo baixo */
+  .card-grafico { height: 120px; overflow: hidden; border: 1px solid #ddd; padding: 8px; } /* B3 lista cortada */
+  .pedidos { position: relative; }
+  .titulo-pedidos { font-size: 22px; }
+  .status { position: absolute; top: 6px; left: 60px; color: #b00; font-size: 14px; }  /* B4 texto sobre o título */
+
+  /* ===== BUGS SÓ MOBILE (< 700px) ===== */
+  .barra-acoes { position: fixed; left: 0; right: 0; bottom: 0; height: 72px; padding: 12px 16px; background: #fff; border-top: 1px solid #ddd; } /* B5 tapa o último botão */
+
+  /* ===== DESKTOP (>= 1024px) ===== */
+  .anuncio { display: none; }
+  @media (min-width: 700px) {
+    .log { overflow-x: auto; }                                                           /* B6 só estoura no mobile */
+    .barra-acoes { position: static; height: auto; border-top: 0; }
+  }
+  @media (min-width: 1024px) {
+    .lateral { transform: none; }
+    .topo, main { margin-left: 220px; }
+    .menu { display: none; }
+    .acoes-form { position: relative; }
+    .anuncio { display: block; position: absolute; inset: 0; background: #ffd; }        /* B7 cobre o Salvar */
+  }
+</style>
+</head>
+<body>
+  <nav class="lateral" aria-label="Menu"><a href="/painel">Painel</a><a href="/pedidos">Pedidos</a><a href="/config">Configurações</a></nav>
+
+  <header class="topo">
+    <button class="menu" aria-label="Abrir menu">☰</button>
+    <strong>Admin</strong>
+    <div class="busca">
+      <svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="#555"/></svg>
+      <input type="search" aria-label="Buscar" placeholder="Buscar pedidos">
+    </div>
+    <img class="avatar-user" src="img/avatar-nao-existe.png" alt="Ana" width="40" height="40"> <!-- B8 -->
+  </header>
+
+  <main>
+    <section class="kpis">
+      <div><strong>R$ 48 mil</strong><p class="kpi-legenda">Receita do mês, sem estornos</p></div>
+      <div><strong>312</strong><p>Pedidos</p></div>
+      <div><strong>4,8</strong><p>Avaliação</p></div>
+    </section>
+
+    <section>
+      <button class="exportar">Exportar</button>
+      <button class="fechar"><svg width="16" height="16" aria-hidden="true"><path d="M2 2l12 12M14 2L2 14" stroke="#222"/></svg></button> <!-- B9 sem nome -->
+      <label class="switch"><input type="checkbox" name="auto"><span class="trilho"></span>Atualizar sozinho</label>
+    </section>
+
+    <section class="card-grafico">
+      <h3>Vendas por canal</h3>
+      <ul><li>Site</li><li>App</li><li>Loja física</li><li>Marketplace</li><li>Telefone</li></ul>
+    </section>
+
+    <section>
+      <img class="grafico-png" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect width='10' height='10' fill='%23446'/%3E%3C/svg%3E" width="200" height="80"> <!-- B10 sem alt -->
+    </section>
+
+    <section class="pedidos">
+      <h2 class="titulo-pedidos">Pedidos recentes</h2>
+      <span class="status">atrasado</span>
+    </section>
+
+    <section class="tabela" tabindex="0" aria-label="Pedidos">
+      <table>
+        <tr><th>Pedido</th><th>Cliente</th><th>Valor</th><th>Status</th></tr>
+        <tr><td>1001</td><td><div class="cliente">Maria Aparecida dos Santos Oliveira</div></td><td>R$ 120</td><td>Pago</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <input class="filtro-data" type="text" placeholder="dd/mm/aaaa"> <!-- B11 só placeholder -->
+    </section>
+
+    <section>
+      <pre class="log" tabindex="0" aria-label="Log">2026-10-08T08:52:11Z worker=export-csv status=ok rows=312 file=s3://bucket/exports/pedidos-2026-10-08.csv duration=1.42s</pre>
+    </section>
+
+    <section class="acoes-form">
+      <button class="salvar">Salvar alterações</button>
+      <div class="anuncio">Novidade: relatórios agendados</div>
+    </section>
+
+    <div class="modal" role="dialog" aria-label="Confirmar"><button>OK</button></div>
+    <button class="carregar-mais">Carregar mais</button>
+  </main>
+
+  <div class="barra-acoes"><span>3 selecionados</span></div>
+</body>
+</html>

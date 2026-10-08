@@ -82,8 +82,11 @@ jev ui-audit https://app.com --login-url https://app.com/login --username user@e
 | `placeholder-as-label` | form-label | campo cujo único rótulo é o placeholder (o axe aceita); avisa quando há `<label>` sem `for` |
 | `a11y-*` | accessibility | axe-core com as tags WCAG 2.0/2.1 A e AA |
 
-Header/bottom nav fixos com espaço reservado na página **não** contam como
-cobertura: rolar revela o elemento. Overlay/painel flutuante conta.
+Barra fixa/sticky (header, bottom nav, FAB, banner de cookies) só conta como
+cobertura se **nenhuma** posição de scroll revela o elemento: o último botão preso
+sob o banner de cookies é bug, o conteúdo que passa sob um header com padding no
+body não é. Elementos dentro de container rolável (app shell de SPA) são ignorados
+nessa checagem. Overlay/painel flutuante sobre o conteúdo conta sempre.
 
 Analyzer que quebra **não some**: entra em `summary.failedAnalyzers`, o summary avisa
 "Audit INCOMPLETO" e o `--gate` reprova.
@@ -97,7 +100,11 @@ node skills/jev-ui-audit/bench/run.js stress   # só uma
 
 Cada `fixtures/<pagina>.expected.json` lista, por viewport, os findings que os bugs
 plantados devem gerar (`"regra seletor"`); qualquer outro é falso positivo.
-`controls-page.html` só tem padrões legítimos (lista esperada vazia). O teste
+`controls-page.html` só tem padrões legítimos (lista esperada vazia).
+As `holdout*-page.html` foram escritas depois do ajuste, com o gabarito fechado
+antes da primeira execução, para medir bugs que os analyzers nunca viram (3
+rodadas; o que cada uma provocou está no `fixtures/README.md`). Total atual: 149
+findings esperados em 7 fixtures. O teste
 `node --test tests/ui-audit.test.js` exige 100% de recall e precisão. Ao mexer num
 analyzer, plante o bug numa fixture, adicione a linha no `.expected.json` e
 coloque o padrão legítimo parecido na `controls-page.html`.

@@ -31,7 +31,11 @@ function installDomHelpers() {
 
   function isRendered(el) {
     const style = window.getComputedStyle(el);
-    return style.display !== 'none' && style.visibility !== 'hidden';
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    // Conteúdo de <details> fechado, content-visibility: hidden etc.: o
+    // computed style diz "block", mas nada é pintado
+    if (el.checkVisibility && !el.checkVisibility({ contentVisibilityAuto: false })) return false;
+    return true;
   }
 
   // Tags que nunca têm caixa visual própria
@@ -129,29 +133,93 @@ function installDomHelpers() {
     return false;
   }
 
-  // Barra fixa encostada no topo/rodapé e ocupando a largura (header, bottom
-  // nav) só esconde o que está embaixo NESTA posição de scroll. Se a página
-  // reserva espaço para ela (padding no body), rolar revela o elemento: não é
-  // bug. Painéis/widgets flutuantes não entram aqui, cobrem uma coluna inteira.
-  function isRevealableByScroll(victim, coverer) {
-    if (isFixed(victim)) return false;
-    let bar = null;
-    for (let p = coverer; p && p !== document.documentElement; p = p.parentElement) {
-      if (window.getComputedStyle(p).position === 'fixed') { bar = p; break; }
+  // Elemento fixed (ou sticky) que fica sobre o conteúdo enquanto a página rola
+  function stuckAncestor(el) {
+    for (let p = el; p && p !== document.documentElement; p = p.parentElement) {
+      const pos = window.getComputedStyle(p).position;
+      if (pos === 'fixed' || pos === 'sticky') return p;
     }
-    if (!bar) return false;
-    const vw = document.documentElement.clientWidth;
+    return null;
+  }
+
+  // Faixas verticais do viewport tapadas por fixed/sticky na coluna x
+  // Lista de fixed/sticky, cacheada por 1s: scrollBlocker roda por elemento
+  let stuckCache = null;
+  function stuckElements() {
+    if (stuckCache && performance.now() - stuckCache.at < 1000) return stuckCache.list;
+    const list = Array.from(document.body.querySelectorAll('*')).filter(el => {
+      const pos = window.getComputedStyle(el).position;
+      return pos === 'fixed' || pos === 'sticky';
+    });
+    stuckCache = { at: performance.now(), list };
+    return list;
+  }
+
+  function stuckBands(x, exclude) {
+    const bands = [];
+    for (const el of stuckElements()) {
+      const pos = window.getComputedStyle(el).position;
+      if (exclude && (el.contains(exclude) || exclude.contains(el))) continue;
+      if (!isRendered(el) || window.getComputedStyle(el).pointerEvents === 'none') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 5 || r.height < 5 || x < r.left || x > r.right) continue;
+      // sticky só gruda no topo/rodapé depois de rolar: usa a posição grudada
+      if (pos === 'sticky') {
+        const s = window.getComputedStyle(el);
+        if (s.top !== 'auto') bands.push({ top: parseFloat(s.top), bottom: parseFloat(s.top) + r.height, el });
+        else if (s.bottom !== 'auto') bands.push({ top: window.innerHeight - parseFloat(s.bottom) - r.height, bottom: window.innerHeight - parseFloat(s.bottom), el });
+        continue;
+      }
+      bands.push({ top: r.top, bottom: r.bottom, el });
+    }
+    return bands;
+  }
+
+  // Existe alguma posição de scroll em que o centro do elemento fica dentro do
+  // viewport e fora de toda barra fixa/sticky? Se não, ele é inalcançável
+  // (ex.: último botão da página preso sob o banner de cookies).
+  // Devolve null se alcançável, ou o elemento que o tapa.
+  function scrollBlocker(victim) {
+    if (stuckAncestor(victim)) return null;  // anda junto com o scroll
+    // Dentro de container rolável (layout de SPA que rola um div, não o
+    // documento): o scroll do documento não é o que revela o elemento
+    for (let p = victim.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+      const s = window.getComputedStyle(p);
+      if (/(auto|scroll)/.test(s.overflowY) && p.scrollHeight > p.clientHeight) return null;
+    }
+    const r = victim.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const absCenter = r.top + r.height / 2 + window.scrollY;
     const vh = window.innerHeight;
-    const b = bar.getBoundingClientRect();
-    if (b.width < vw * 0.9) return false;
-    const v = victim.getBoundingClientRect();
-    const scrollY = window.scrollY;
-    const maxScroll = document.documentElement.scrollHeight - vh;
-    const absTop = v.top + scrollY;
-    const absBottom = v.bottom + scrollY;
-    if (b.top <= 1) return absTop >= b.bottom;                       // barra no topo: nunca sobe além dela
-    if (b.bottom >= vh - 1) return absBottom - b.top <= maxScroll;   // barra no rodapé: rolar até sair de baixo
-    return false;
+    const maxScroll = Math.max(0, document.documentElement.scrollHeight - vh);
+    const bands = stuckBands(cx, victim).sort((a, b) => a.top - b.top);
+    // zonas livres = [0, vh] menos as faixas
+    const free = [];
+    let cursor = 0;
+    for (const band of bands) {
+      if (band.top > cursor) free.push([cursor, Math.min(band.top, vh)]);
+      cursor = Math.max(cursor, band.bottom);
+    }
+    if (cursor < vh) free.push([cursor, vh]);
+    for (const [z0, z1] of free) {
+      if (z1 - z0 < 1) continue;
+      // centro em z0..z1 => scrollY em [absCenter - z1, absCenter - z0]
+      const lo = Math.max(0, absCenter - z1);
+      const hi = Math.min(maxScroll, absCenter - z0);
+      if (hi >= lo) return null;
+    }
+    // tapado em qualquer scroll: aponta a faixa onde o centro para no fim do scroll
+    const y = Math.min(maxScroll, Math.max(0, absCenter - vh / 2));
+    const at = absCenter - y;
+    // Sem barra sobre o centro, o que impede é falta de scroll, não oclusão
+    const band = bands.find(b => at >= b.top && at <= b.bottom);
+    return band ? band.el : null;
+  }
+
+  // O coverer é fixed/sticky e rolar a página tira a vítima de baixo dele
+  function isRevealableByScroll(victim, coverer) {
+    if (!stuckAncestor(coverer) || stuckAncestor(victim)) return false;
+    return scrollBlocker(victim) === null;
   }
 
   // Área de toque real: o <label> associado também aciona o campo (WCAG 2.5.8)
@@ -166,8 +234,35 @@ function installDomHelpers() {
     return { width, height };
   }
 
+  const TEXT_INPUT = /^(text|search|email|url|tel|password|number)$/;
+  function isTextEntry(el) {
+    if (el.tagName === 'TEXTAREA') return true;
+    return el.tagName === 'INPUT' && TEXT_INPUT.test((el.getAttribute('type') || 'text').toLowerCase());
+  }
+
+  // Área onde o texto digitado aparece: a caixa menos borda e padding. Ícone
+  // ou botão dentro do padding é padrão de design; dentro desta área, tapa o texto.
+  function contentBox(el) {
+    const r = el.getBoundingClientRect();
+    const s = window.getComputedStyle(el);
+    const px = v => parseFloat(v) || 0;
+    return {
+      left: r.left + px(s.borderLeftWidth) + px(s.paddingLeft),
+      right: r.right - px(s.borderRightWidth) - px(s.paddingRight),
+      top: r.top + px(s.borderTopWidth) + px(s.paddingTop),
+      bottom: r.bottom - px(s.borderBottomWidth) - px(s.paddingBottom)
+    };
+  }
+
+  // Ponto (x, y) está dentro da parte visível do el (não cortado por ancestral)
+  function isVisibleAt(el, x, y) {
+    const c = clipRect(el);
+    return x >= c.left && x <= c.right && y >= c.top && y <= c.bottom;
+  }
+
   window.__jevUiAudit = {
-    isRevealableByScroll, touchRect,
+    isTextEntry, contentBox, isVisibleAt,
+    isRevealableByScroll, scrollBlocker, stuckAncestor, touchRect,
     getSelector, isInteractive, isRendered, isNonVisual, isOnTopAt,
     isVisuallyHidden, hasDirectText, directTextRects, visibleTextRects, clipBox, clipRect, intersect, hasOpaqueBackground, isFixed
   };

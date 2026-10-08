@@ -235,5 +235,5 @@ test('ui-audit: benchmark de fixtures com 100% de recall e precisão', { skip: s
   assert.deepEqual(total.failures, []);
   assert.equal(total.recall, 1, report);
   assert.equal(total.precision, 1, report);
-  assert.ok(total.expected >= 60, 'benchmark encolheu');
+  assert.ok(total.expected >= 149, 'benchmark encolheu');
 });
