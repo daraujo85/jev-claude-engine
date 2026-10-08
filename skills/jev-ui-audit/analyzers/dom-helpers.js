@@ -223,13 +223,38 @@ function installDomHelpers() {
   }
 
   // Área de toque real: o <label> associado também aciona o campo (WCAG 2.5.8)
+  // Área tocável: a caixa do elemento, o <label> associado ou o pseudo-elemento
+  // absoluto que estica o clique sobre o card/linha ("stretched link":
+  // a::after { position: absolute; inset: 0 } dentro de um container relative)
+  function stretchedRect(el) {
+    let best = null;
+    for (const pseudo of ['::before', '::after']) {
+      const ps = window.getComputedStyle(el, pseudo);
+      if (ps.content === 'none' || ps.content === 'normal' || ps.display === 'none') continue;
+      if (ps.position !== 'absolute' || ps.pointerEvents === 'none') continue;
+      const offs = ['top', 'right', 'bottom', 'left'].map(k => ps[k]);
+      if (offs.some(v => !/^-?[\d.]+px$/.test(v))) continue;
+      const [top, right, bottom, left] = offs.map(parseFloat);
+      // Bloco de contenção: o próprio elemento se posicionado, senão o ancestral posicionado
+      let cb = window.getComputedStyle(el).position !== 'static' ? el : el.parentElement;
+      while (cb && cb !== document.body && window.getComputedStyle(cb).position === 'static') cb = cb.parentElement;
+      if (!cb) continue;
+      const c = cb.getBoundingClientRect();
+      const rect = { width: c.width - left - right, height: c.height - top - bottom };
+      if (rect.width > 0 && rect.height > 0 && (!best || rect.width * rect.height > best.width * best.height)) best = rect;
+    }
+    return best;
+  }
+
   function touchRect(el) {
     const r = el.getBoundingClientRect();
     let width = r.width;
     let height = r.height;
-    for (const label of el.labels || []) {
-      const lr = label.getBoundingClientRect();
-      if (lr.width * lr.height > width * height) { width = lr.width; height = lr.height; }
+    const candidates = [...(el.labels || [])].map(l => l.getBoundingClientRect());
+    const stretched = stretchedRect(el);
+    if (stretched) candidates.push(stretched);
+    for (const c of candidates) {
+      if (c.width * c.height > width * height) { width = c.width; height = c.height; }
     }
     return { width, height };
   }

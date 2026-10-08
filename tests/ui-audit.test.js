@@ -73,6 +73,28 @@ test('ui-audit: content-clipping diz o que ficou fora da caixa', { skip: skipRea
   }
 });
 
+test('ui-audit: link esticado por ::after conta a área do card no toque', { skip: skipReason }, async () => {
+  const browser = new BrowserAdapter();
+  await browser.start();
+  try {
+    await browser.setViewport(MOBILE.width, MOBILE.height);
+    await browser.page.setContent(`<!DOCTYPE html><html lang="pt-BR"><head><title>t</title><style>
+      .card { position: relative; padding: 16px; margin: 16px; border: 1px solid #ccc; }
+      a { display: inline-block; font-size: 14px; line-height: 20px; }
+      .esticado::after { content: ''; position: absolute; inset: 0; }
+      .decorativo::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
+      </style></head><body>
+      <div class="card"><a class="esticado" href="/a">Pedido 1</a><p>Detalhe</p></div>
+      <div class="card"><a class="decorativo" href="/b">Pedido 2</a><p>Detalhe</p></div></body></html>`);
+    const { findings } = await runAnalyzers({ page: browser.page, route: '/x', viewport: MOBILE, config: { accessibility: false } });
+    const sels = findings.filter(f => f.rule === 'touch-target-size').map(f => f.element.selector);
+    assert.ok(!sels.some(s => /esticado/.test(s)), sels.join(', '));
+    assert.ok(sels.some(s => /decorativo/.test(s)), sels.join(', '));
+  } finally {
+    await browser.close();
+  }
+});
+
 test('ui-audit: setViewport redimensiona a página', { skip: skipReason }, async () => {
   const browser = new BrowserAdapter();
   await browser.start();

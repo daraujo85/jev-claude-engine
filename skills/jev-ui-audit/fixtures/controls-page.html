@@ -66,6 +66,11 @@
   .senha input { width: 100%; padding-right: 48px; }
   .senha button { position: absolute; right: 2px; bottom: 2px; width: 44px; height: 44px; min-height: 0; padding: 0; border: 0; background: none; }
 
+  /* card inteiro clicável: o link tem texto pequeno mas o ::after cobre o card */
+  .card-link { position: relative; max-width: 360px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
+  .card-link a { display: inline-block; font-size: 14px; line-height: 20px; }
+  .card-link a::after { content: ''; position: absolute; inset: 0; }
+
   /* texto sobre imagem com fundo próprio */
   .capa { position: relative; max-width: 360px; }
   .capa img { display: block; width: 100%; height: 160px; }
@@ -129,6 +134,11 @@
 
     <section class="grid">
       <div>Card 1</div><div>Card 2</div><div>Card 3</div><div>Card 4</div><div>Card 5</div>
+    </section>
+
+    <section class="card-link">
+      <a href="/pedido/42">Pedido 42</a>
+      <p>Entregue em 12/09</p>
     </section>
 
     <section class="capa">
