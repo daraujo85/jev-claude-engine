@@ -31,6 +31,10 @@ export async function analyzeClipping(context) {
         continue;
       }
 
+      // Caixa <= 1px: padrão sr-only/visually-hidden ou elemento colapsado
+      // (este o analyzer de visibility já reporta como collapsed-element)
+      if (el.clientWidth <= 1 || el.clientHeight <= 1) continue;
+
       // Check for text clipping (scrollWidth > clientWidth)
       if (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight) {
         const hasTextClipping = style.overflowX !== 'visible' &&

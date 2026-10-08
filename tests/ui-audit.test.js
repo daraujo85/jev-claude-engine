@@ -9,6 +9,7 @@ import { calculateScore } from '../skills/jev-ui-audit/ui-audit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(__dirname, '../skills/jev-ui-audit/fixtures/test-page.html');
+const RESPONSIVE = path.resolve(__dirname, '../skills/jev-ui-audit/fixtures/responsive-page.html');
 const MOBILE = { name: 'mobile', width: 390, height: 844, touch: true };
 const DESKTOP = { name: 'desktop', width: 1440, height: 900, touch: false };
 
@@ -23,12 +24,12 @@ try {
   skipReason = `playwright indisponível: ${err.message}`;
 }
 
-async function auditFixture(viewport, config = {}) {
+async function auditFixture(viewport, config = {}, file = FIXTURE) {
   const browser = new BrowserAdapter();
   await browser.start();
   try {
     await browser.setViewport(viewport.width, viewport.height);
-    await browser.page.setContent(fs.readFileSync(FIXTURE, 'utf-8'));
+    await browser.page.setContent(fs.readFileSync(file, 'utf-8'));
     return await runAnalyzers({ page: browser.page, route: '/fixture', viewport, config });
   } finally {
     await browser.close();
@@ -64,7 +65,6 @@ test('ui-audit: fixture no mobile dispara os findings esperados sem analyzer fal
     'horizontal-overflow',
     'content-clipping',
     'collapsed-element',
-    'element-overlap',
     'covered-element',
     'touch-target-size',
     'a11y-image-alt'
@@ -76,8 +76,12 @@ test('ui-audit: fixture no mobile dispara os findings esperados sem analyzer fal
   assert.equal(overflow.severity, 'critical');
   assert.ok(overflow.element?.selector, 'overflow sem seletor do elemento raiz');
 
+  // overlap + covered do mesmo botão viram um finding só, com quem cobre e quanto
   const covered = findings.find(f => f.rule === 'covered-element');
   assert.equal(covered.element.selector, 'button.covered-button');
+  assert.equal(covered.metrics.coveredBy, 'div.floating-overlay');
+  assert.equal(covered.metrics.coveredRatio, 1);
+  assert.ok(!findings.some(f => f.rule === 'element-overlap' && f.element?.selector === 'button.covered-button'));
 
   const collapsed = findings.find(f => f.rule === 'collapsed-element');
   assert.equal(collapsed.element.selector, 'div.collapsed-sidebar');
@@ -151,4 +155,52 @@ test('ui-audit: CLI grava report.json com failedAnalyzers', { skip: skipReason }
   assert.ok(report.summary.totalFindings > 0);
   assert.ok(report.summary.score < 80);
   fs.rmSync(out, { recursive: true, force: true });
+});
+
+// responsive-page.html: bugs plantados por media query (M* só mobile, D* só desktop)
+// e controles que NÃO podem gerar finding (rolagem intencional, ellipsis, ícone
+// dentro do input, sr-only, menu display:none)
+const keysOf = findings => new Set(findings.map(f => `${f.rule} ${f.element?.selector}`));
+
+test('ui-audit: responsive-page no mobile acha só os bugs de mobile', { skip: skipReason }, async () => {
+  const { findings, failures } = await auditFixture(MOBILE, {}, RESPONSIVE);
+  assert.deepEqual(failures, []);
+  const keys = keysOf(findings);
+  for (const k of [
+    'horizontal-overflow section.promo-banner',
+    'content-clipping h3',
+    'covered-element button.btn.entrar',
+    'collapsed-element section.stats',
+    'touch-target-size button.hamburger',
+    'a11y-image-alt img',
+    'a11y-color-contrast .footer-note'
+  ]) assert.ok(keys.has(k), `faltou ${k}; veio: ${[...keys].join(' | ')}`);
+
+  // bugs de desktop não vazam pro mobile
+  for (const k of ['horizontal-overflow section.data-table', 'covered-element button.btn.salvar', 'a11y-button-name .icon-only']) {
+    assert.ok(!keys.has(k), `${k} não deveria aparecer no mobile`);
+  }
+  // controles e duplicações
+  const sels = findings.map(f => f.element?.selector || '');
+  assert.ok(!sels.some(s => /table-wrap|ellipsis|sr-only|search|icon\b/.test(s)), `falso positivo em controle: ${sels.join(', ')}`);
+  assert.ok(!findings.some(f => f.rule === 'element-overlap' && f.element?.selector === 'button.btn.entrar'), 'overlap duplicando o covered-element');
+});
+
+test('ui-audit: responsive-page no desktop acha só os bugs de desktop', { skip: skipReason }, async () => {
+  const { findings, failures } = await auditFixture(DESKTOP, {}, RESPONSIVE);
+  assert.deepEqual(failures, []);
+  const keys = keysOf(findings);
+  for (const k of [
+    'horizontal-overflow section.data-table',
+    'content-clipping ul',
+    'covered-element button.btn.salvar',
+    'a11y-button-name .icon-only'
+  ]) assert.ok(keys.has(k), `faltou ${k}; veio: ${[...keys].join(' | ')}`);
+
+  for (const k of ['horizontal-overflow section.promo-banner', 'covered-element button.btn.entrar', 'collapsed-element section.stats', 'content-clipping h3']) {
+    assert.ok(!keys.has(k), `${k} não deveria aparecer no desktop`);
+  }
+  assert.ok(!findings.some(f => f.rule === 'touch-target-size'));
+  const covered = findings.find(f => f.rule === 'covered-element');
+  assert.equal(covered.metrics.coveredBy, 'aside.side-panel');
 });

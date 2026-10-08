@@ -73,7 +73,27 @@ export async function runAnalyzers(context) {
     }
   }
 
-  return { findings, failures };
+  return { findings: dedupeCovered(findings), failures };
+}
+
+/**
+ * overlap e visibility enxergam o mesmo botão tapado por caminhos diferentes.
+ * Mantém o covered-element (diz quem cobre) e incorpora o coveredRatio do
+ * overlap, para não penalizar o score duas vezes pelo mesmo defeito.
+ */
+function dedupeCovered(findings) {
+  const covered = new Map(
+    findings
+      .filter(f => f.rule === 'covered-element' && f.element?.selector)
+      .map(f => [f.element.selector, f])
+  );
+  return findings.filter(f => {
+    if (f.rule !== 'element-overlap') return true;
+    const twin = covered.get(f.element?.selector);
+    if (!twin) return true;
+    twin.metrics = { ...twin.metrics, coveredRatio: f.metrics.coveredRatio };
+    return false;
+  });
 }
 
 export { analyzeOverflow, analyzeClipping, analyzeOverlap, analyzeVisibility, analyzeAccessibility, analyzeTouchTargets };

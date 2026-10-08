@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loja Lab - bugs plantados</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: system-ui, sans-serif; color: #222; background: #fff; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #ddd; }
+  .btn { padding: 12px 20px; background: #0b5394; color: #fff; border: 0; border-radius: 6px; font-size: 16px; }
+  main { padding: 16px; }
+  section { margin-bottom: 24px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* CONTROLES (não devem gerar finding de layout) */
+  .table-wrap { overflow-x: auto; max-width: 100%; }           /* C1 rolagem intencional */
+  .table-wrap table { width: 900px; border-collapse: collapse; }
+  .ellipsis { width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* C2 */
+  .search { position: relative; width: 260px; max-width: 100%; }
+  .search input { width: 100%; padding: 12px 12px 12px 36px; font-size: 16px; }
+  .search .icon { position: absolute; left: 10px; top: 12px; pointer-events: none; } /* C3 */
+  .mobile-menu { display: none; }                               /* C5 */
+
+  /* BUGS COMUNS (mobile e desktop) */
+  .footer-note { color: #bbb; background: #fff; }               /* B1 contraste */
+
+  /* ===== BUGS SÓ NO MOBILE ===== */
+  .hamburger { display: none; }
+  .icon-only { display: inline-block; }
+  @media (max-width: 768px) {
+    .promo-banner { width: 600px; background: #fde; padding: 16px; }          /* M1 overflow */
+    .price-card { width: 150px; }
+    .price-card h3 { white-space: nowrap; overflow: hidden; }                  /* M2 clipping sem ellipsis */
+    .chat-widget { position: fixed; top: 0; right: 0; width: 140px; height: 70px;
+                   background: #fc0; z-index: 50; }                             /* M3 cobre o Entrar */
+    .stats { width: 0; overflow: hidden; }                                     /* M4 colapsado */
+    .hamburger { display: inline-block; width: 20px; height: 20px; padding: 0; border: 0;
+                 background: #333; color: #fff; font-size: 10px; }             /* M5 alvo de toque 20px */
+    .icon-only { display: none; }
+  }
+
+  /* ===== BUGS SÓ NO DESKTOP ===== */
+  @media (min-width: 1024px) {
+    .data-table { width: 1800px; background: #eef; }                           /* D1 overflow */
+    .side-panel { position: fixed; top: 60px; left: 0; width: 280px; height: 300px;
+                  background: #f4f4f4; border-right: 1px solid #ccc; z-index: 20; } /* D2 cobre o Salvar */
+    .top-nav ul { display: flex; flex-wrap: wrap; gap: 24px; height: 24px; overflow: hidden;
+                  list-style: none; padding: 0; }                              /* D3 itens cortados */
+    .top-nav li { width: 260px; }
+  }
+  .chat-widget, .side-panel { display: block; }
+</style>
+</head>
+<body>
+  <header>
+    <strong>Loja Lab</strong>
+    <button class="hamburger">≡</button>
+    <button class="icon-only"><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg></button> <!-- D4 botão sem nome, só desktop -->
+    <button class="btn entrar">Entrar</button>
+  </header>
+  <div class="chat-widget">Chat</div>
+  <aside class="side-panel">Filtros</aside>
+  <nav class="mobile-menu"><a href="#">Menu escondido</a></nav>
+
+  <main>
+    <section>
+      <button class="btn salvar">Salvar</button>
+    </section>
+
+    <nav class="top-nav"><ul>
+      <li>Início</li><li>Produtos</li><li>Ofertas</li><li>Contato</li><li>Sobre</li><li>Ajuda</li>
+    </ul></nav>
+
+    <section class="promo-banner">Promoção de primavera: frete grátis acima de R$ 99</section>
+
+    <section class="price-card"><h3>Plano Profissional Anual</h3><p>R$ 49/mês</p></section>
+
+    <section class="stats"><p>Vendas hoje: 128</p></section>
+
+    <section class="data-table">Relatório consolidado</section>
+
+    <section class="table-wrap" tabindex="0" aria-label="Tabela de pedidos">
+      <table><tr><th>Pedido</th><th>Cliente</th><th>Total</th></tr><tr><td>1</td><td>Ana</td><td>R$ 10</td></tr></table>
+    </section>
+
+    <section><p class="ellipsis">Um nome de produto muito comprido para caber</p></section>
+
+    <section class="search">
+      <label class="sr-only" for="q">Buscar</label>
+      <span class="icon">🔍</span>
+      <input id="q" type="search" placeholder="Buscar">
+    </section>
+
+    <section>
+      <img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="80" height="80"> <!-- B2 sem alt -->
+      <input type="email" placeholder="Seu e-mail">                                <!-- B3 sem label -->
+    </section>
+
+    <p class="footer-note">Termos e condições se aplicam.</p>
+  </main>
+</body>
+</html>

@@ -67,6 +67,8 @@ export async function analyzeOverlap(context) {
           );
 
           if (coveredRatio >= 0.15) {
+            // element1 = o interativo tapado; element2 = quem está por cima
+            const victimFirst = obscured1 && (!obscured2 || overlapArea / area1 >= overlapArea / area2);
             findings.push({
               element1: {
                 tag: el1.tagName.toLowerCase(),
@@ -85,6 +87,10 @@ export async function analyzeOverlap(context) {
               overlapArea,
               coveredRatio: Math.round(coveredRatio * 100) / 100
             });
+            if (!victimFirst) {
+              const last = findings[findings.length - 1];
+              [last.element1, last.element2] = [last.element2, last.element1];
+            }
           }
         }
       }
@@ -103,12 +109,13 @@ export async function analyzeOverlap(context) {
       route,
       viewport,
       element: item.element1,
-      message: `Elements overlap: ${item.element1.tag} × ${item.element2.tag}`,
+      message: `${item.element1.selector} tapado ${Math.round(item.coveredRatio * 100)}% por ${item.element2.selector}`,
       metrics: {
         overlapX: item.overlapX,
         overlapY: item.overlapY,
         overlapArea: item.overlapArea,
-        coveredRatio: item.coveredRatio
+        coveredRatio: item.coveredRatio,
+        coveredBy: item.element2.selector
       }
     }));
   }

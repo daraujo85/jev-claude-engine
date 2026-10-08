@@ -12,9 +12,9 @@ function installDomHelpers() {
   function getSelector(el) {
     if (el.id) return `#${el.id}`;
     if (el.className && typeof el.className === 'string') {
-      const classes = el.className.trim().split(/\s+/).slice(0, 2);
-      if (classes[0]) {
-        return `${el.tagName.toLowerCase()}.${classes[0]}`;
+      const classes = el.className.trim().split(/\s+/).filter(Boolean).slice(0, 2);
+      if (classes.length) {
+        return `${el.tagName.toLowerCase()}.${classes.join('.')}`;
       }
     }
     return el.tagName.toLowerCase();
