@@ -9,6 +9,11 @@ import { analyzeOverlap } from './overlap.js';
 import { analyzeVisibility } from './visibility.js';
 import { analyzeAccessibility } from './accessibility.js';
 import { analyzeTouchTargets } from './touch-target.js';
+import { analyzeOffscreen } from './offscreen.js';
+import { analyzeTextOverlap } from './text-overlap.js';
+import { analyzeBrokenImages } from './broken-image.js';
+import { analyzeSmallText } from './small-text.js';
+import { analyzeFormLabels } from './form-label.js';
 
 export async function discoverRoutes(context) {
   const { page, baseUrl } = context;
@@ -53,10 +58,14 @@ export async function runAnalyzers(context) {
     analyzeClipping,
     analyzeOverlap,
     analyzeVisibility,
-    analyzeTouchTargets
+    analyzeTouchTargets,
+    analyzeOffscreen,
+    analyzeTextOverlap,
+    analyzeBrokenImages,
+    analyzeSmallText
   ];
   if (context.config?.accessibility !== false) {
-    analyzers.push(analyzeAccessibility);
+    analyzers.push(analyzeFormLabels, analyzeAccessibility);
   }
 
   for (const analyzer of analyzers) {
@@ -96,4 +105,7 @@ function dedupeCovered(findings) {
   });
 }
 
-export { analyzeOverflow, analyzeClipping, analyzeOverlap, analyzeVisibility, analyzeAccessibility, analyzeTouchTargets };
+export {
+  analyzeOverflow, analyzeClipping, analyzeOverlap, analyzeVisibility, analyzeAccessibility, analyzeTouchTargets,
+  analyzeOffscreen, analyzeTextOverlap, analyzeBrokenImages, analyzeSmallText, analyzeFormLabels
+};

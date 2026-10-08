@@ -47,3 +47,36 @@ Bugs plantados por media query, para provar que o audit separa viewports:
 Controles que **não** podem gerar finding: tabela em container `overflow-x: auto`,
 texto com `text-overflow: ellipsis`, ícone `pointer-events: none` dentro do input
 de busca, label `.sr-only` e menu `display: none`.
+
+## stress-page.html
+
+Bugs plantados (manifesto completo em `stress-page.expected.json`):
+
+| Viewport | Bug | Finding |
+|---|---|---|
+| todos | zoom bloqueado (`user-scalable=no`) | `a11y-meta-viewport` |
+| todos | imagem 404 | `broken-image` `img.produto-quebrado` |
+| todos | e-mail só com placeholder / `<label>` CPF sem `for` | `placeholder-as-label` |
+| todos | select sem nome, link só com ícone | `a11y-select-name`, `a11y-link-name` |
+| todos | descrição com altura fixa, dropdown cortado pelo card | `content-clipping` `p.desc`, `div.card-menu` |
+| todos | selo absoluto sobre o título | `text-overlap` `span.selo` |
+| mobile/tablet | `overflow-x: hidden` no body escondendo badge/chips/coluna | `offscreen-element` |
+| mobile/tablet | header fixo sem compensação cobrindo "Voltar" | `covered-element` `a.btn.voltar` |
+| mobile/tablet | etiqueta tapando 36% do "Comprar" | `element-overlap` `button.btn.comprar` |
+| mobile/tablet | texto legal 10px, paginação 32px | `small-text`, `touch-target-size` |
+| desktop | toast fixo meio fora da tela | `offscreen-element` `div.toast` |
+| desktop | barra promo fixa sobre o "Carrinho" | `covered-element` `button.btn.carrinho` |
+| desktop | título nowrap invadindo a coluna vizinha | `text-overlap` `h1.hero-titulo` |
+| desktop | link #aaa | `a11y-color-contrast` |
+
+Controles na mesma página: skip link fora da tela, line-clamp, carrossel com
+slides fora, drawer fechado, texto sobre imagem com fundo, `aria-label` em busca,
+fonte de 12px, tooltip `visibility: hidden`.
+
+## controls-page.html
+
+Sem bugs: header e bottom nav fixos com padding no body, checkbox customizado
+(input invisível + label), badge sobre ícone, tabela/lista roláveis, ellipsis,
+line-clamp, avatar com `overflow: hidden`, grid auto-fill, ícone dentro do input,
+legenda sobre imagem, imagem lazy fora da tela, modal/menu/tooltip fechados.
+Qualquer finding aqui é falso positivo.

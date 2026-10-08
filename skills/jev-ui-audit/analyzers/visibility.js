@@ -12,7 +12,7 @@ export async function analyzeVisibility(context) {
 
   await ensureDomHelpers(page);
   const result = await page.evaluate((vp) => {
-    const { getSelector, isInteractive, isNonVisual } = window.__jevUiAudit;
+    const { getSelector, isInteractive, isNonVisual, isRevealableByScroll } = window.__jevUiAudit;
     const findings = [];
     const elements = Array.from(document.body.querySelectorAll('*'));
 
@@ -61,7 +61,7 @@ export async function analyzeVisibility(context) {
         rect.left + rect.width / 2,
         rect.top + rect.height / 2
       );
-      const isCovered = hit !== null && hit !== el && !el.contains(hit);
+      const isCovered = hit !== null && hit !== el && !el.contains(hit) && !isRevealableByScroll(el, hit);
 
       // Cobertura só importa para o que o usuário precisa clicar
       if (isCovered && isInteractive(el) && style.pointerEvents !== 'none') {

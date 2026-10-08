@@ -204,3 +204,36 @@ test('ui-audit: responsive-page no desktop acha só os bugs de desktop', { skip:
   const covered = findings.find(f => f.rule === 'covered-element');
   assert.equal(covered.metrics.coveredBy, 'aside.side-panel');
 });
+
+// Benchmark: cada fixtures/*.expected.json lista os findings que os bugs
+// plantados devem gerar por viewport; controls-page.html é só padrão legítimo.
+// Recall e precisão têm que ficar em 100%.
+test('ui-audit: benchmark de fixtures com 100% de recall e precisão', { skip: skipReason, timeout: 600000 }, async () => {
+  const http = await import('node:http');
+  const { benchFixture, summarize } = await import('../skills/jev-ui-audit/bench/run.js');
+  const dir = path.resolve(__dirname, '../skills/jev-ui-audit/fixtures');
+  const server = http.createServer((req, res) => {
+    const file = path.join(dir, decodeURIComponent(req.url.split('?')[0]));
+    if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(fs.readFileSync(file));
+  });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const rows = [];
+  try {
+    for (const m of fs.readdirSync(dir).filter(f => f.endsWith('.expected.json'))) {
+      rows.push(...await benchFixture(path.join(dir, m), `http://127.0.0.1:${server.address().port}`));
+    }
+  } finally {
+    server.close();
+  }
+  const total = summarize(rows);
+  const report = rows
+    .filter(r => r.missing.length || r.unexpected.length)
+    .map(r => `${r.fixture}[${r.viewport}] faltou: ${r.missing.join(', ') || '-'} | inesperado: ${r.unexpected.join(', ') || '-'}`)
+    .join('\n');
+  assert.deepEqual(total.failures, []);
+  assert.equal(total.recall, 1, report);
+  assert.equal(total.precision, 1, report);
+  assert.ok(total.expected >= 60, 'benchmark encolheu');
+});

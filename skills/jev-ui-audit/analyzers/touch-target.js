@@ -19,15 +19,18 @@ export async function analyzeTouchTargets(context) {
 
   await ensureDomHelpers(page);
   const result = await page.evaluate(({ recommended }) => {
-    const { getSelector, isInteractive, isRendered } = window.__jevUiAudit;
+    const { getSelector, isInteractive, isRendered, touchRect } = window.__jevUiAudit;
     const items = [];
 
     for (const el of document.body.querySelectorAll('*')) {
       if (!isInteractive(el) || !isRendered(el)) continue;
       // Links dentro de texto corrido são exceção no WCAG 2.5.8
       if (el.tagName === 'A' && window.getComputedStyle(el).display === 'inline') continue;
-      const rect = el.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) continue;
+      const box = el.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) continue;
+      // Fora da tela (skip link, menu off-canvas fechado): não é tocável agora
+      if (box.right <= 0 || box.left >= window.innerWidth) continue;
+      const rect = touchRect(el);
       if (rect.width >= recommended && rect.height >= recommended) continue;
 
       items.push({

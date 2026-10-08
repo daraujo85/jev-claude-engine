@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controles - padrões legítimos</title>
+<style>
+  /* Página SEM bugs: só padrões comuns de produção que um auditor ingênuo
+     acusaria. Qualquer finding aqui é falso positivo. */
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: system-ui, sans-serif; font-size: 16px; color: #222; background: #fff; padding-top: 64px; padding-bottom: 72px; }
+  button, input, select, textarea { min-height: 48px; font-size: 16px; }
+  .btn { display: inline-flex; align-items: center; min-height: 48px; padding: 0 16px; background: #0b5394; color: #fff; border: 0; border-radius: 6px; }
+  main { padding: 16px; max-width: 960px; }
+  section { margin-bottom: 32px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; padding: 0; margin: -1px; }
+
+  /* header fixo com o body compensando (padding-top) */
+  .topo { position: fixed; top: 0; left: 0; right: 0; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: #fff; border-bottom: 1px solid #ddd; z-index: 10; }
+  /* bottom nav fixa com o body compensando (padding-bottom) */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 64px; display: flex; justify-content: space-around; background: #fafafa; border-top: 1px solid #ddd; }
+  .bottom-nav a { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 48px; }
+
+  /* checkbox customizado: input real invisível sob o desenho */
+  .check { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; }
+  .check input { position: absolute; opacity: 0; width: 24px; height: 24px; margin: 0; }
+  .check .box { width: 24px; height: 24px; border: 2px solid #555; border-radius: 4px; pointer-events: none; }
+
+  /* badge de notificação sobre o ícone (decorativo) */
+  .sino { position: relative; }
+  .badge { position: absolute; top: 4px; right: 4px; min-width: 18px; height: 18px; border-radius: 9px; background: #c00; color: #fff; font-size: 12px; line-height: 18px; text-align: center; pointer-events: none; }
+
+  /* tabela larga em container rolável */
+  .tabela { overflow-x: auto; }
+  .tabela table { width: 1200px; border-collapse: collapse; }
+  .tabela td, .tabela th { padding: 8px; border: 1px solid #ddd; text-align: left; }
+
+  /* lista rolável vertical */
+  .lista { height: 120px; overflow-y: auto; border: 1px solid #ddd; }
+  .lista li { padding: 8px; }
+
+  /* ellipsis em célula e em uma linha */
+  .nome { max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* tooltip/dropdown fechados */
+  .tip { position: absolute; visibility: hidden; }
+  .menu-fechado { display: none; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; }
+
+  /* avatar redondo: imagem cortada pelo border-radius + overflow hidden */
+  .avatar { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; }
+  .avatar img { width: 48px; height: 48px; object-fit: cover; }
+
+  /* grid responsivo que quebra linha */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .grid div { padding: 12px; background: #f0f4f8; }
+
+  /* ícone decorativo dentro do botão e do input */
+  .busca { position: relative; max-width: 320px; }
+  .busca svg { position: absolute; left: 12px; top: 16px; pointer-events: none; }
+  .busca input { width: 100%; padding-left: 40px; }
+
+  /* texto sobre imagem com fundo próprio */
+  .capa { position: relative; max-width: 360px; }
+  .capa img { display: block; width: 100%; height: 160px; }
+  .capa p { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px; background: rgba(0,0,0,.75); color: #fff; }
+</style>
+</head>
+<body>
+  <a class="sr-only" href="#main">Pular para o conteúdo</a>
+  <header class="topo">
+    <strong>Painel</strong>
+    <button class="btn sino" aria-label="Notificações: 3 novas">🔔<span class="badge">3</span></button>
+  </header>
+
+  <main id="main">
+    <section>
+      <h1>Pedidos</h1>
+      <p>Texto corrido com <a href="/ajuda">um link pequeno</a> no meio da frase.</p>
+    </section>
+
+    <section>
+      <label class="check"><input type="checkbox" name="aceite"><span class="box"></span>Aceito os termos</label>
+    </section>
+
+    <section class="tabela" tabindex="0" aria-label="Pedidos">
+      <table>
+        <tr><th>Pedido</th><th>Cliente</th><th>Total</th></tr>
+        <tr><td>1</td><td><div class="nome">Maria Aparecida dos Santos Oliveira</div></td><td>R$ 10</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <ul class="lista" tabindex="0" aria-label="Histórico">
+        <li>Item 1</li><li>Item 2</li><li>Item 3</li><li>Item 4</li><li>Item 5</li><li>Item 6</li>
+      </ul>
+    </section>
+
+    <section>
+      <p class="clamp">Um parágrafo bem longo que é truncado em três linhas com line-clamp para caber no card, prática comum em listagens de produtos e notícias, e que não deve ser reportado como conteúdo cortado porque o truncamento é intencional e sinalizado com reticências.</p>
+    </section>
+
+    <section class="busca">
+      <label for="q" class="sr-only">Buscar</label>
+      <svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="#555"/></svg>
+      <input id="q" type="search" placeholder="Buscar pedidos">
+    </section>
+
+    <section>
+      <label for="obs">Observações</label>
+      <textarea id="obs" rows="3" placeholder="Opcional"></textarea>
+    </section>
+
+    <section class="avatar">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect width='10' height='10' fill='%23889'/%3E%3C/svg%3E" alt="Foto de perfil">
+    </section>
+
+    <section class="grid">
+      <div>Card 1</div><div>Card 2</div><div>Card 3</div><div>Card 4</div><div>Card 5</div>
+    </section>
+
+    <section class="capa">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect width='10' height='10' fill='%23335'/%3E%3C/svg%3E" alt="">
+      <p>Legenda sobre a imagem</p>
+    </section>
+
+    <section>
+      <img loading="lazy" src="img/lazy-que-nao-carregou-ainda.png" alt="Banner do rodapé" width="300" height="100" style="margin-top: 3000px">
+    </section>
+
+    <span class="tip" role="tooltip">Dica escondida</span>
+    <nav class="menu-fechado"><a href="/x">Escondido</a></nav>
+    <div class="modal" role="dialog" aria-label="Confirmar"><button>OK</button></div>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Atalhos">
+    <a href="/inicio">Início</a><a href="/pedidos">Pedidos</a><a href="/perfil">Perfil</a>
+  </nav>
+</body>
+</html>

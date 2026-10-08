@@ -12,7 +12,7 @@ export async function analyzeOverlap(context) {
 
   await ensureDomHelpers(page);
   const result = await page.evaluate(() => {
-    const { getSelector, isInteractive, isRendered, isOnTopAt } = window.__jevUiAudit;
+    const { getSelector, isInteractive, isRendered, isOnTopAt, isRevealableByScroll } = window.__jevUiAudit;
     const findings = [];
     const elements = Array.from(document.body.querySelectorAll('*')).filter(isRendered);
 
@@ -57,8 +57,8 @@ export async function analyzeOverlap(context) {
           // (elementFromPoint os ignora), nem o interativo que está por cima.
           const cx = Math.max(rect1.left, rect2.left) + overlapX / 2;
           const cy = Math.max(rect1.top, rect2.top) + overlapY / 2;
-          const obscured1 = isInteractive1 && !isOnTopAt(el1, cx, cy);
-          const obscured2 = isInteractive2 && !isOnTopAt(el2, cx, cy);
+          const obscured1 = isInteractive1 && !isOnTopAt(el1, cx, cy) && !isRevealableByScroll(el1, el2);
+          const obscured2 = isInteractive2 && !isOnTopAt(el2, cx, cy) && !isRevealableByScroll(el2, el1);
           // Fração tapada do interativo: ícone dentro de input (~5%) é padrão,
           // botão sob overlay (~100%) é bug
           const coveredRatio = Math.max(

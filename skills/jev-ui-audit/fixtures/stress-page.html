@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<!-- A5 zoom bloqueado (WCAG 1.4.4) -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Loja Stress - bugs plantados</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  /* o "hack" clássico: corta tudo que vaza em vez de corrigir */
+  html, body { overflow-x: hidden; }
+  body { font-family: system-ui, sans-serif; font-size: 16px; color: #222; background: #fff; }
+  button, input, select, .btn { min-height: 48px; font-size: 16px; padding: 0 16px; }
+  .btn { display: inline-flex; align-items: center; background: #0b5394; color: #fff; border: 0; border-radius: 6px; text-decoration: none; }
+  header.topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; height: 64px; padding: 0 16px; background: #fff; border-bottom: 1px solid #ddd; }
+  main { padding: 16px; }
+  section { margin-bottom: 32px; position: relative; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ===== CONTROLES (não podem gerar finding) ===== */
+  .skip { position: absolute; left: -9999px; top: 0; background: #000; color: #fff; padding: 8px; } /* C1 skip link */
+  .resumo { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; width: 260px; } /* C2 line-clamp */
+  .carrossel { overflow: hidden; width: 300px; max-width: 100%; }                 /* C3 carrossel estilo Swiper */
+  .trilho { display: flex; transform: translateX(0); }
+  .slide { flex: 0 0 100%; height: 120px; background: #e8f0fe; padding: 16px; }
+  .drawer { position: fixed; top: 0; left: 0; width: 280px; height: 100%; background: #fff;
+            transform: translateX(-100%); }                                        /* C4 off-canvas fechado */
+  .drawer a { display: block; padding: 14px 16px; }
+  .banner { position: relative; width: 320px; max-width: 100%; }                   /* C5 texto sobre imagem */
+  .banner img { display: block; width: 100%; height: 140px; }
+  .banner h2 { position: absolute; left: 16px; bottom: 16px; color: #fff; background: #000; }
+  .nota { font-size: 12px; }                                                       /* C10 12px é o limite */
+  .tooltip { visibility: hidden; position: absolute; }                             /* C12 */
+
+  /* ===== BUGS EM TODOS OS VIEWPORTS ===== */
+  .desc { height: 40px; overflow: hidden; width: 260px; }                          /* A6 texto cortado sem clamp */
+  .card-menu { position: relative; overflow: hidden; width: 260px; height: 64px; border: 1px solid #ccc; padding: 8px; }
+  .card-menu .dropdown { position: absolute; top: 40px; left: 8px; width: 200px; background: #fff; border: 1px solid #999; } /* A7 dropdown cortado */
+  .oferta { position: relative; }
+  .titulo-oferta { font-size: 24px; }
+  .selo { position: absolute; top: 4px; left: 40px; font-size: 18px; color: #c00; } /* A8 texto sobre texto */
+  .social { display: inline-flex; width: 48px; height: 48px; align-items: center; justify-content: center; }
+
+  /* ===== BUGS SÓ MOBILE/TABLET (<= 768px) ===== */
+  .badge-promo { position: absolute; top: 0; right: 16px; width: 140px; background: #fde; padding: 8px; }
+  .chips { display: flex; gap: 8px; }
+  .chip { flex: 0 0 120px; padding: 8px; background: #eee; border-radius: 16px; }
+  .compra { position: relative; width: 220px; }
+  .comprar { width: 220px; text-align: left; justify-content: flex-start; }
+  .etiqueta { display: none; }
+  .legal { font-size: 14px; }
+  .paginacao a { display: inline-block; width: 48px; height: 48px; }
+  @media (max-width: 768px) {
+    header.topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 30; }  /* M4 cobre o Voltar */
+    .badge-promo { right: -70px; }                                               /* M1 meio fora da tela */
+    .chips { flex-wrap: nowrap; }                                                /* M2 chips cortados pela borda */
+    .etiqueta { display: block; position: absolute; top: 0; right: 0; width: 80px; height: 48px;
+                background: #c00; color: #fff; text-align: center; line-height: 48px; } /* M5 tapa 36% do Comprar */
+    .legal { font-size: 10px; }                                                  /* M3 texto ilegível */
+    .paginacao a { width: 32px; height: 32px; }                                  /* M6 alvo de toque */
+  }
+
+  /* ===== BUGS SÓ DESKTOP (>= 1024px) ===== */
+  .toast { display: none; }
+  .promo-fixa { display: none; }
+  .link-claro { color: #222; }
+  .hero { display: grid; grid-template-columns: 300px 300px; gap: 16px; }
+  @media (min-width: 1024px) {
+    .toast { display: block; position: fixed; bottom: 24px; right: -120px; width: 300px; padding: 16px;
+             background: #333; color: #fff; }                                    /* D1 toast meio fora */
+    .promo-fixa { display: block; position: fixed; top: 0; right: 0; width: 360px; height: 72px;
+                  background: #ffeb99; z-index: 40; }                             /* D4 cobre o Carrinho */
+    .link-claro { color: #aaa; }                                                 /* D2 contraste */
+    .hero-titulo { white-space: nowrap; font-size: 32px; }                       /* D3 título invade a coluna */
+  }
+</style>
+</head>
+<body>
+  <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+  <nav class="drawer" aria-label="Menu"><a href="/a">Conta</a><a href="/b">Pedidos</a></nav>
+
+  <header class="topbar">
+    <strong>Loja Stress</strong>
+    <button class="btn carrinho">Carrinho</button>
+  </header>
+  <div class="promo-fixa">Frete grátis hoje</div>
+  <div class="toast">Pedido salvo com sucesso</div>
+
+  <main id="conteudo">
+    <section>
+      <a class="btn voltar" href="/voltar">Voltar</a>
+      <div class="badge-promo">Cupom PRATA10</div>
+    </section>
+
+    <section class="hero">
+      <h1 class="hero-titulo">Ofertas imperdíveis da semana inteira</h1>
+      <p class="hero-lado">Confira descontos</p>
+    </section>
+
+    <section class="oferta">
+      <h2 class="titulo-oferta">Notebook Ultra</h2>
+      <span class="selo">Novo lançamento</span>
+    </section>
+
+    <section class="chips">
+      <span class="chip">Celulares</span><span class="chip">Notebooks</span><span class="chip">Tablets</span><span class="chip">Fones</span><span class="chip">Relógios</span>
+    </section>
+
+    <section class="compra">
+      <button class="btn comprar">Comprar</button>
+      <div class="etiqueta">-20%</div>
+    </section>
+
+    <section>
+      <p class="desc">Descrição longa do produto que ocupa várias linhas e passa da altura fixa de quarenta pixels definida no CSS do card, então some.</p>
+      <p class="resumo">Resumo longo do produto que ocupa várias linhas e é cortado de propósito com line-clamp em duas linhas, com reticências.</p>
+    </section>
+
+    <section>
+      <div class="card-menu">Mais opções
+        <ul class="dropdown"><li>Editar</li><li>Duplicar</li><li>Excluir</li></ul>
+      </div>
+    </section>
+
+    <section class="carrossel" aria-label="Destaques">
+      <div class="trilho"><div class="slide">Slide 1</div><div class="slide">Slide 2</div><div class="slide">Slide 3</div></div>
+    </section>
+
+    <section class="banner">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect width='10' height='10' fill='%23446'/%3E%3C/svg%3E" alt="">
+      <h2>Coleção nova</h2>
+    </section>
+
+    <section>
+      <img class="produto-quebrado" src="img/nao-existe.png" alt="Fone sem fio" width="120" height="120"> <!-- A2 -->
+      <img class="produto-ok" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'/%3E" alt="Fone com fio" width="120" height="120">
+    </section>
+
+    <section>
+      <label for="nome">Nome</label>
+      <input id="nome" type="text" placeholder="Seu nome">                    <!-- C7 -->
+      <input class="busca" type="search" aria-label="Buscar" placeholder="Buscar"> <!-- C8 -->
+      <input class="newsletter" type="email" placeholder="Seu e-mail">         <!-- A1 só placeholder -->
+      <div class="campo"><label>CPF</label><input class="cpf" type="text" placeholder="000.000.000-00"></div> <!-- A9 label órfão -->
+      <select class="ordenar"><option>Mais vendidos</option><option>Menor preço</option></select> <!-- A4 -->
+      <input type="hidden" name="token" value="x">
+    </section>
+
+    <section>
+      <a class="social" href="/instagram"><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8"/></svg></a> <!-- A3 -->
+      <a class="link-claro" href="/termos">Termos de uso</a>
+      <span class="tooltip" role="tooltip">Dica</span>
+    </section>
+
+    <nav class="paginacao" aria-label="Páginas"><a href="?p=1">1</a> <a href="?p=2">2</a> <a href="?p=3">3</a></nav>
+
+    <p class="legal">Preços sujeitos a alteração sem aviso prévio.</p>
+    <p class="nota">Imagens meramente ilustrativas.</p>
+    <span class="sr-only">Fim da página</span>
+  </main>
+</body>
+</html>

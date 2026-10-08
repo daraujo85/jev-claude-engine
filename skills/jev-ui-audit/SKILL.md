@@ -70,16 +70,37 @@ jev ui-audit https://app.com --login-url https://app.com/login --username user@e
 
 | Regra | Analyzer | Observação |
 |---|---|---|
-| `horizontal-overflow` | overflow | página mais larga que o viewport |
-| `content-clipping` | clipping | conteúdo cortado por `overflow: hidden/clip` (auto/scroll não conta) |
+| `horizontal-overflow` | overflow | página mais larga que o viewport (rola na horizontal) |
+| `offscreen-element` | offscreen | elemento parcialmente cortado pela borda lateral sem rolagem (`overflow-x: hidden` no body escondendo o estouro, toast/badge fixo fora). Inteiro fora (skip link, off-canvas) não conta |
+| `content-clipping` | clipping | conteúdo cortado por `overflow: hidden/clip`. Ignora auto/scroll, ellipsis, line-clamp e carrossel (slides inteiros fora) |
+| `text-overlap` | text-overlap | texto desenhado sobre outro texto (título nowrap invadindo a coluna, selo absoluto) |
 | `element-overlap` | overlap | interativo tapado (≥15% da área) por outro elemento |
 | `collapsed-element` / `covered-element` | visibility | elemento com conteúdo e tamanho zero / interativo coberto no centro |
-| `touch-target-size` | touch-target | só em viewport touch: < 24px (medium) ou < 44px (low) |
+| `broken-image` | broken-image | `<img>` que terminou de carregar sem pixels (404). Lazy ainda não carregada não conta |
+| `small-text` | small-text | texto < 12px (medium em touch, low no desktop) |
+| `touch-target-size` | touch-target | só em viewport touch: < 24px (medium) ou < 44px (low); o `<label>` associado conta como área |
+| `placeholder-as-label` | form-label | campo cujo único rótulo é o placeholder (o axe aceita); avisa quando há `<label>` sem `for` |
 | `a11y-*` | accessibility | axe-core com as tags WCAG 2.0/2.1 A e AA |
 
+Header/bottom nav fixos com espaço reservado na página **não** contam como
+cobertura: rolar revela o elemento. Overlay/painel flutuante conta.
+
 Analyzer que quebra **não some**: entra em `summary.failedAnalyzers`, o summary avisa
-"Audit INCOMPLETO" e o `--gate` reprova. Testes: `node --test tests/ui-audit.test.js`
-(usa `fixtures/test-page.html`).
+"Audit INCOMPLETO" e o `--gate` reprova.
+
+## Benchmark (recall/precisão)
+
+```bash
+node skills/jev-ui-audit/bench/run.js          # todas as fixtures, 3 viewports
+node skills/jev-ui-audit/bench/run.js stress   # só uma
+```
+
+Cada `fixtures/<pagina>.expected.json` lista, por viewport, os findings que os bugs
+plantados devem gerar (`"regra seletor"`); qualquer outro é falso positivo.
+`controls-page.html` só tem padrões legítimos (lista esperada vazia). O teste
+`node --test tests/ui-audit.test.js` exige 100% de recall e precisão. Ao mexer num
+analyzer, plante o bug numa fixture, adicione a linha no `.expected.json` e
+coloque o padrão legítimo parecido na `controls-page.html`.
 
 ## Output
 

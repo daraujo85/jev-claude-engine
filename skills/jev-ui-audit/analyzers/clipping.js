@@ -12,54 +12,69 @@ export async function analyzeClipping(context) {
 
   await ensureDomHelpers(page);
   const result = await page.evaluate(() => {
-    const { getSelector } = window.__jevUiAudit;
+    const { getSelector, directTextRects } = window.__jevUiAudit;
     const findings = [];
 
-    const allElements = Array.from(document.querySelectorAll('*'));
+    // Há conteúdo real escondido? Na vertical, qualquer coisa além da borda
+    // conta (itens de nav sumindo, texto cortado). Na horizontal, elemento
+    // inteiro do lado de fora é paginação de carrossel/slider: só conta texto
+    // próprio fora da caixa ou algo atravessando a borda (cortado ao meio).
+    function outside(box, r, axis) {
+      return axis === 'x'
+        ? r.left < box.left - 1 || r.right > box.right + 1
+        : r.top < box.top - 1 || r.bottom > box.bottom + 1;
+    }
+    function straddles(box, r) {
+      return (r.left < box.left - 1 && r.right > box.left + 1) || (r.left < box.right - 1 && r.right > box.right + 1);
+    }
+    function hasCutContent(container, axis) {
+      const box = container.getBoundingClientRect();
+      if (directTextRects(container).some(r => outside(box, r, axis))) return true;
+      for (const d of container.querySelectorAll('*')) {
+        const r = d.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        if (axis === 'y' ? outside(box, r, 'y') : straddles(box, r)) return true;
+        if (axis === 'x' && directTextRects(d).some(t => straddles(box, t))) return true;
+      }
+      return false;
+    }
 
-    for (const el of allElements) {
+    for (const el of document.body.querySelectorAll('*')) {
       const style = window.getComputedStyle(el);
-      const rect = el.getBoundingClientRect();
 
-      // Check if element has overflow clipping
       const overflowX = style.overflowX;
       const overflowY = style.overflowY;
+      const clipsX = ['hidden', 'clip'].includes(overflowX);
+      const clipsY = ['hidden', 'clip'].includes(overflowY);
 
       // auto/scroll são containers roláveis intencionais, não clipping
-      if (!['hidden', 'clip'].includes(overflowX) &&
-          !['hidden', 'clip'].includes(overflowY)) {
-        continue;
-      }
+      if (!clipsX && !clipsY) continue;
 
       // Caixa <= 1px: padrão sr-only/visually-hidden ou elemento colapsado
       // (este o analyzer de visibility já reporta como collapsed-element)
       if (el.clientWidth <= 1 || el.clientHeight <= 1) continue;
 
-      // Check for text clipping (scrollWidth > clientWidth)
-      if (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight) {
-        const hasTextClipping = style.overflowX !== 'visible' &&
-                                style.textOverflow !== 'clip' &&
-                                style.whiteSpace === 'nowrap';
+      // Truncamento intencional: ellipsis corta na horizontal, line-clamp na vertical
+      const ellipsis = style.textOverflow === 'ellipsis';
+      const clamp = (style.webkitLineClamp && style.webkitLineClamp !== 'none') ||
+                    (style.lineClamp && style.lineClamp !== 'none');
 
-        // Skip intentional ellipsis
-        if (hasTextClipping && (style.textOverflow === 'ellipsis' || style.lineClamp)) {
-          continue;
-        }
+      const cutX = clipsX && !ellipsis && el.scrollWidth > el.clientWidth + 1 && hasCutContent(el, 'x');
+      const cutY = clipsY && !clamp && el.scrollHeight > el.clientHeight + 1 && hasCutContent(el, 'y');
+      if (!cutX && !cutY) continue;
 
-        findings.push({
-          tag: el.tagName.toLowerCase(),
-          id: el.id || null,
-          className: el.className?.baseVal || el.className || null,
-          textPreview: el.textContent?.slice(0, 30) || null,
-          overflowX,
-          overflowY,
-          scrollWidth: el.scrollWidth,
-          clientWidth: el.clientWidth,
-          scrollHeight: el.scrollHeight,
-          clientHeight: el.clientHeight,
-          selector: getSelector(el)
-        });
-      }
+      findings.push({
+        tag: el.tagName.toLowerCase(),
+        id: el.id || null,
+        textPreview: el.textContent?.trim().slice(0, 30) || null,
+        overflowX,
+        overflowY,
+        scrollWidth: el.scrollWidth,
+        clientWidth: el.clientWidth,
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        selector: getSelector(el)
+      });
     }
 
     return findings.slice(0, 20); // Limit findings
@@ -83,7 +98,7 @@ export async function analyzeClipping(context) {
         textPreview: item.textPreview,
         selector: item.selector
       },
-      message: `Content clipped by overflow-${item.overflowX || item.overflowY}`,
+      message: `Conteúdo cortado por overflow ${item.overflowX}/${item.overflowY}`,
       metrics: {
         overflowX: item.overflowX,
         overflowY: item.overflowY,

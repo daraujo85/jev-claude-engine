@@ -1,0 +1,54 @@
+{
+  "fixture": "stress-page.html",
+  "viewports": {
+    "mobile": [
+      "offscreen-element div.badge-promo",
+      "offscreen-element span.chip",
+      "offscreen-element p.hero-lado",
+      "covered-element a.btn.voltar",
+      "element-overlap button.btn.comprar",
+      "small-text p.legal",
+      "touch-target-size a",
+      "text-overlap span.selo",
+      "content-clipping p.desc",
+      "content-clipping div.card-menu",
+      "broken-image img.produto-quebrado",
+      "placeholder-as-label input.newsletter",
+      "a11y-select-name select",
+      "a11y-link-name .social",
+      "a11y-meta-viewport meta[name=\"viewport\"]",
+      "placeholder-as-label input.cpf"
+    ],
+    "tablet": [
+      "offscreen-element div.badge-promo",
+      "covered-element a.btn.voltar",
+      "element-overlap button.btn.comprar",
+      "small-text p.legal",
+      "touch-target-size a",
+      "text-overlap span.selo",
+      "content-clipping p.desc",
+      "content-clipping div.card-menu",
+      "broken-image img.produto-quebrado",
+      "placeholder-as-label input.newsletter",
+      "a11y-select-name select",
+      "a11y-link-name .social",
+      "a11y-meta-viewport meta[name=\"viewport\"]",
+      "placeholder-as-label input.cpf"
+    ],
+    "desktop": [
+      "offscreen-element div.toast",
+      "covered-element button.btn.carrinho",
+      "text-overlap h1.hero-titulo",
+      "a11y-color-contrast .link-claro",
+      "text-overlap span.selo",
+      "content-clipping p.desc",
+      "content-clipping div.card-menu",
+      "broken-image img.produto-quebrado",
+      "placeholder-as-label input.newsletter",
+      "a11y-select-name select",
+      "a11y-link-name .social",
+      "a11y-meta-viewport meta[name=\"viewport\"]",
+      "placeholder-as-label input.cpf"
+    ]
+  }
+}
