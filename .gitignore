@@ -1,0 +1,9 @@
+node_modules/
+.jev/
+graphify-out/
+.specs/
+.claude/
+skills-lock.json
+.sessionflow/
+.archify/
+package-lock.json

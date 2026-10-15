@@ -1,0 +1,8 @@
+{
+  "fixture": "spa-shell-page.html",
+  "viewports": {
+    "mobile": ["covered-element button.btn.concluir", "content-clipping label.valor"],
+    "tablet": ["covered-element button.btn.concluir", "content-clipping label.valor"],
+    "desktop": ["covered-element button.btn.concluir", "content-clipping label.valor"]
+  }
+}

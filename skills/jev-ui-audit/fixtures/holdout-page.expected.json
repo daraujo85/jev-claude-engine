@@ -1,0 +1,49 @@
+{
+  "fixture": "holdout-page.html",
+  "viewports": {
+    "mobile": [
+      "horizontal-overflow img.foto-larga",
+      "touch-target-size input.lembrar",
+      "content-clipping button.btn.acao-curta",
+      "text-overlap span.por",
+      "small-text p.legenda",
+      "collapsed-element section.painel",
+      "covered-element button.btn.ultimo",
+      "covered-element button.fab",
+      "broken-image img.galeria",
+      "placeholder-as-label textarea.comentario",
+      "a11y-link-name .thumb",
+      "a11y-aria-hidden-focus section:nth-child(9) > div",
+      "a11y-frame-title iframe"
+    ],
+    "tablet": [
+      "covered-element button.btn.assinar",
+      "touch-target-size input.lembrar",
+      "content-clipping button.btn.acao-curta",
+      "text-overlap span.por",
+      "small-text p.legenda",
+      "collapsed-element section.painel",
+      "covered-element button.btn.ultimo",
+      "covered-element button.fab",
+      "broken-image img.galeria",
+      "placeholder-as-label textarea.comentario",
+      "a11y-link-name .thumb",
+      "a11y-aria-hidden-focus section:nth-child(9) > div",
+      "a11y-frame-title iframe"
+    ],
+    "desktop": [
+      "covered-element button.btn.assinar",
+      "content-clipping button.btn.acao-curta",
+      "text-overlap span.por",
+      "small-text p.legenda",
+      "collapsed-element section.painel",
+      "covered-element button.btn.ultimo",
+      "covered-element button.fab",
+      "broken-image img.galeria",
+      "placeholder-as-label textarea.comentario",
+      "a11y-link-name .thumb",
+      "a11y-aria-hidden-focus section:nth-child(9) > div",
+      "a11y-frame-title iframe"
+    ]
+  }
+}

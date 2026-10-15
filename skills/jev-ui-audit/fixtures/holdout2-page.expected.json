@@ -1,0 +1,21 @@
+{
+  "fixture": "holdout2-page.html",
+  "viewports": {
+    "mobile": [
+      "horizontal-overflow div",
+      "element-overlap #cupom",
+      "a11y-color-contrast .aviso",
+      "content-clipping div.parcelas"
+    ],
+    "tablet": [
+      "element-overlap #cupom",
+      "a11y-color-contrast .aviso",
+      "content-clipping div.parcelas"
+    ],
+    "desktop": [
+      "element-overlap #cupom",
+      "a11y-color-contrast .aviso",
+      "content-clipping div.parcelas"
+    ]
+  }
+}

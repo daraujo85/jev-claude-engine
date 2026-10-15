@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Holdout 2 - formulário de checkout</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: system-ui, sans-serif; font-size: 16px; color: #222; background: #fff; }
+  button, input, select, .btn { min-height: 48px; font-size: 16px; }
+  .btn { display: inline-flex; align-items: center; padding: 0 16px; background: #0b5394; color: #fff; border: 0; border-radius: 6px; }
+  main { padding: 16px; max-width: 720px; }
+  fieldset { border: 1px solid #ccc; padding: 16px; margin-bottom: 24px; }
+  .linha { display: flex; gap: 12px; }
+  .linha > div { flex: 1; min-width: 0; }
+  .linha input { width: 100%; }
+
+  /* bugs */
+  .resumo-grid { display: grid; grid-template-columns: 1fr 200px; gap: 12px; }  /* G1 no mobile: 200px fixo + texto nowrap estoura */
+  .resumo-grid .total { white-space: nowrap; font-size: 28px; }
+  .cupom-box { display: flex; }
+  .cupom-box input { flex: 1; }
+  .cupom-box button { margin-left: -60px; }                                     /* G2 botão sobre o input */
+  .aviso { color: #9a9a9a; }                                                    /* G3 contraste */
+  .parcelas { height: 48px; overflow: hidden; }                                 /* G4 radios cortados */
+  .parcelas label { display: flex; align-items: center; min-height: 48px; gap: 8px; }
+  .parcelas input { min-height: 0; width: 24px; height: 24px; }
+  @media (max-width: 480px) {
+    .linha { flex-wrap: nowrap; }
+    .linha > div { flex: 0 0 200px; }                                           /* G5 linha CEP/número estoura no mobile */
+  }
+</style>
+</head>
+<body>
+  <main>
+    <h1>Checkout</h1>
+    <fieldset>
+      <legend>Entrega</legend>
+      <div class="linha">
+        <div><label for="cep">CEP</label><input id="cep" inputmode="numeric"></div>
+        <div><label for="num">Número</label><input id="num"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Pagamento</legend>
+      <div class="parcelas">
+        <label><input type="radio" name="p" checked> 1x sem juros</label>
+        <label><input type="radio" name="p"> 2x sem juros</label>
+        <label><input type="radio" name="p"> 3x sem juros</label>
+      </div>
+      <div class="cupom-box">
+        <label for="cupom" class="sr" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Cupom</label>
+        <input id="cupom" type="text">
+        <button class="btn aplicar">Aplicar</button>
+      </div>
+    </fieldset>
+
+    <section class="resumo-grid">
+      <p class="itens">3 itens</p>
+      <p class="total">Total: R$ 12.345,67</p>
+    </section>
+
+    <p class="aviso">Ao finalizar você concorda com os termos.</p>
+    <button class="btn finalizar">Finalizar compra</button>
+  </main>
+</body>
+</html>

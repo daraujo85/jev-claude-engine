@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Sync JEV skills + OpenCode plugin into every agent's directory.
+# Idempotent: re-running re-points symlinks, never duplicates.
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SKILLS_DIR="$PROJECT_DIR/skills"
+PLUGIN_SRC="$PROJECT_DIR/plugins/jev-opencode.js"
+
+JEV_SKILLS=(
+  jev-anti-regression
+  jev-browser-test
+  jev-discover
+  jev-explore
+  jev-fanout
+  jev-model-router
+  jev-plan-evaluator
+  jev-review
+)
+
+TARGETS=(
+  "$HOME/.claude/skills"
+  "$HOME/.opencode/skills"
+  "$HOME/.codex/skills"
+  "$HOME/.gemini/skills"
+  "$HOME/.agents/skills"
+)
+
+installed=0
+for target in "${TARGETS[@]}"; do
+  [ -d "$target" ] || { mkdir -p "$target"; }
+  for s in "${JEV_SKILLS[@]}"; do
+    [ -d "$SKILLS_DIR/$s" ] || { echo "!! skill ausente: $s" >&2; continue; }
+    ln -sfn "$SKILLS_DIR/$s" "$target/$s"
+    installed=$((installed + 1))
+  done
+done
+
+# OpenCode plugin: copy (plugins auto-load from ~/.config/opencode/plugins).
+if [ -f "$PLUGIN_SRC" ]; then
+  OPENCODE_PLUGINS="$HOME/.config/opencode/plugins"
+  [ -d "$OPENCODE_PLUGINS" ] || mkdir -p "$OPENCODE_PLUGINS"
+  cp "$PLUGIN_SRC" "$OPENCODE_PLUGINS/jev.js"
+  installed=$((installed + 1))
+fi
+
+# Codex hooks: global ~/.codex/hooks.json (needs [features] codex_hooks=true).
+CODEX_HOOKS="$PROJECT_DIR/hooks"
+CODEX_HOOKS_JSON="$PROJECT_DIR/scripts/codex-hooks.json"
+if [ -f "$CODEX_HOOKS_JSON" ]; then
+  mkdir -p "$HOME/.codex"
+  cp "$CODEX_HOOKS_JSON" "$HOME/.codex/hooks.json"
+  installed=$((installed + 1))
+fi
+
+# AGY (Antigravity/Gemini) hooks: copy to ~/.gemini/hooks + config/hooks.json.
+GEMINI_HOOKS="$HOME/.gemini/hooks"
+if [ -d "$HOME/.gemini" ]; then
+  mkdir -p "$GEMINI_HOOKS"
+  for h in jev-guard-gemini.js jev-test-verifier-gemini.js jev-skill-picker-gemini.js jev-fast-compact-gemini.js; do
+    [ -f "$PROJECT_DIR/hooks/$h" ] && cp "$PROJECT_DIR/hooks/$h" "$GEMINI_HOOKS/$h" && chmod +x "$GEMINI_HOOKS/$h"
+  done
+  if [ -f "$PROJECT_DIR/scripts/gemini-hooks.json" ]; then
+    mkdir -p "$HOME/.gemini/config"
+    cp "$PROJECT_DIR/scripts/gemini-hooks.json" "$HOME/.gemini/config/hooks.json"
+  fi
+  installed=$((installed + 1))
+fi
+
+# Claude Code statusline (JEV status in the footer): copy to ~/.claude/hooks.
+CLAUDE_HOOKS="$HOME/.claude/hooks"
+if [ -f "$PROJECT_DIR/hooks/statusline/jev-statusline.sh" ]; then
+  mkdir -p "$CLAUDE_HOOKS"
+  cp "$PROJECT_DIR/hooks/statusline/jev-statusline.sh" "$CLAUDE_HOOKS/jarvis-statusline.sh"
+  chmod +x "$CLAUDE_HOOKS/jarvis-statusline.sh"
+  installed=$((installed + 1))
+fi
+
+echo "JEV sincronizado: $installed arquivos em ${#TARGETS[@]} harnesses + plugins/hooks/statusline."

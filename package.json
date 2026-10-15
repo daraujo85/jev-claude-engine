@@ -1,0 +1,30 @@
+{
+  "name": "jev-claude-engine",
+  "version": "0.13.0",
+  "description": "JEV System One Decision Engine integration for Claude Code",
+  "main": "src/index.js",
+  "type": "module",
+  "bin": {
+    "jev": "./bin/jev.js"
+  },
+  "scripts": {
+    "test": "node --test tests/**/*.test.js",
+    "jev": "./bin/jev.js"
+  },
+  "keywords": [
+    "jev",
+    "claude-code",
+    "typesafe-ai",
+    "system-one",
+    "agent-hooks",
+    "spec-driven"
+  ],
+  "author": "Diego Araújo",
+  "license": "MIT",
+  "dependencies": {
+    "axe-core": "^4.10.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.0"
+  }
+}

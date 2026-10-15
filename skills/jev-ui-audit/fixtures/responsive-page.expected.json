@@ -1,0 +1,35 @@
+{
+  "fixture": "responsive-page.html",
+  "viewports": {
+    "mobile": [
+      "horizontal-overflow section.promo-banner",
+      "content-clipping h3",
+      "covered-element button.btn.entrar",
+      "collapsed-element section.stats",
+      "touch-target-size button.hamburger",
+      "small-text button.hamburger",
+      "placeholder-as-label input",
+      "a11y-image-alt img",
+      "a11y-color-contrast .footer-note"
+    ],
+    "tablet": [
+      "content-clipping h3",
+      "covered-element button.btn.entrar",
+      "collapsed-element section.stats",
+      "touch-target-size button.hamburger",
+      "small-text button.hamburger",
+      "placeholder-as-label input",
+      "a11y-image-alt img",
+      "a11y-color-contrast .footer-note"
+    ],
+    "desktop": [
+      "horizontal-overflow section.data-table",
+      "content-clipping ul",
+      "covered-element button.btn.salvar",
+      "a11y-button-name .icon-only",
+      "placeholder-as-label input",
+      "a11y-image-alt img",
+      "a11y-color-contrast .footer-note"
+    ]
+  }
+}

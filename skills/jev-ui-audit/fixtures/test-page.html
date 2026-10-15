@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Page - UI Audit Fixtures</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; padding: 20px; }
+
+    /* Bug: horizontal overflow at mobile */
+    .overflow-container {
+      min-width: 500px;
+      background: #fee;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    /* Bug: clipped dropdown */
+    .clipped-dropdown {
+      width: 120px;
+      overflow: hidden;
+      border: 1px solid #ccc;
+      padding: 8px;
+      margin-bottom: 20px;
+    }
+    .clipped-dropdown ul {
+      list-style: none;
+      white-space: nowrap;
+    }
+
+    /* Bug: zero-size element */
+    .collapsed-sidebar {
+      width: 0;
+      height: 50px;
+      background: #eef;
+      margin-bottom: 20px;
+    }
+
+    /* Bug: covered button */
+    .button-container { position: relative; height: 60px; margin-bottom: 20px; }
+    .floating-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,0,0,0.3);
+      z-index: 10;
+    }
+    .covered-button {
+      position: relative;
+      padding: 12px 24px;
+      background: #28a745;
+      color: white;
+      border: none;
+      z-index: 1;
+    }
+
+    /* Good: normal content */
+    .normal-section {
+      padding: 16px;
+      background: #f5f5f5;
+      margin-bottom: 20px;
+    }
+
+    /* Accessibility: missing alt */
+    .img-missing-alt {
+      width: 100px;
+      height: 100px;
+      background: #ccc;
+      display: block;
+      margin-bottom: 20px;
+    }
+
+    /* Touch target too small */
+    .small-touch-target {
+      padding: 4px 8px;
+      background: #007bff;
+      color: white;
+      display: inline-block;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>UI Audit Test Fixtures</h1>
+
+  <div class="overflow-container">
+    <h2>Horizontal Overflow</h2>
+    <p>This container has min-width: 500px which will cause overflow on mobile viewports.</p>
+  </div>
+
+  <div class="clipped-dropdown">
+    <h2>Clipped Content</h2>
+    <ul>
+      <li>Item 1 - very long text</li>
+      <li>Item 2</li>
+      <li>Item 3</li>
+    </ul>
+  </div>
+
+  <div class="collapsed-sidebar">
+    <h2>Collapsed Sidebar</h2>
+    <p>This should be visible but has width: 0</p>
+  </div>
+
+  <div class="button-container">
+    <div class="floating-overlay"></div>
+    <button class="covered-button">Covered Button</button>
+  </div>
+
+  <div class="normal-section">
+    <h2>Normal Section</h2>
+    <p>This content should render correctly.</p>
+  </div>
+
+  <img class="img-missing-alt" src="nonexistent.png">
+
+  <button class="small-touch-target">Small</button>
+
+  <a href="/page2">Link to page 2</a>
+  <a href="/page3">Link to page 3</a>
+</body>
+</html>

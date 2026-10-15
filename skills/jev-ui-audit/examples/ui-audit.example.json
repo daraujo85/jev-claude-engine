@@ -1,0 +1,21 @@
+{
+  "baseUrl": "http://localhost:4200",
+  "routes": [
+    "/",
+    "/login",
+    "/dashboard"
+  ],
+  "viewports": [
+    { "name": "mobile", "width": 390, "height": 844, "touch": true },
+    { "name": "tablet", "width": 768, "height": 1024, "touch": true },
+    { "name": "desktop", "width": 1440, "height": 900, "touch": false }
+  ],
+  "lighthouse": true,
+  "accessibility": true,
+  "gate": {
+    "minimumScore": 80,
+    "maxBlocker": 0,
+    "maxCritical": 0
+  },
+  "maxRoutes": 50
+}
