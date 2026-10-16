@@ -22,6 +22,7 @@ import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 
 const HOME = os.homedir();
 const CLAUDE_DIR = path.join(HOME, '.claude');
@@ -33,7 +34,8 @@ const CONFIG_FILE = path.join(JEV_DIR, 'config.json');
 const NINE_ROUTER_DIR = path.join(HOME, '.9router');
 const COMPOSE_FILE = path.join(NINE_ROUTER_DIR, 'docker-compose.yml');
 
-const PROJECT_DIR = process.env.JEV_PROJECT_DIR || '/Users/diegoaraujo/Documents/projects/jev-claude-engine';
+// Derivado da localização do script: path absoluto hardcoded quebra em outra máquina (ex.: WSL /home/...).
+const PROJECT_DIR = process.env.JEV_PROJECT_DIR || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const API_KEY = process.env.JEV_API_KEY || '';
 const ROUTER_PORT = 20128;
 const ROUTER_URL = `http://localhost:${ROUTER_PORT}`;
@@ -359,22 +361,31 @@ async function installHooks() {
   results.push(['hooks', true]);
 }
 
+// Hook já existe mas aponta pra outro PROJECT_DIR (settings copiado de outra máquina) → reescreve o comando.
+function repairStale(hook, needle, command) {
+  if (hook.command === command || hook.command.includes(PROJECT_DIR)) return;
+  hook.command = command;
+  console.log(`   ~ hook ${needle} (path corrigido)`);
+}
+
 function pushHookIfMissing(entries, needle, command, matcher) {
-  const has = entries.some(e => (e.hooks || []).some(h => (h.command || '').includes(needle)));
-  if (has) return;
+  const found = entries.flatMap(e => e.hooks || []).find(h => (h.command || '').includes(needle));
+  if (found) return repairStale(found, needle, command);
   entries.push({ matcher: matcher || '.*', hooks: [{ type: 'command', command }] });
   console.log(`   + hook ${needle}`);
 }
 
 function pushSessionStartIfMissing(entries, needle, hook) {
-  if (JSON.stringify(entries).includes(needle)) return;
+  const found = entries.flatMap(e => e.hooks || []).find(h => (h.command || '').includes(needle));
+  if (found) return repairStale(found, needle, hook.command);
   if (entries.length > 0 && Array.isArray(entries[0].hooks)) entries[0].hooks.push(hook);
   else entries.push({ hooks: [hook] });
   console.log(`   + hook ${needle}`);
 }
 
 function pushToListIfMissing(list, needle, command) {
-  if (list.some(h => (h.command || '').includes(needle))) return;
+  const found = list.find(h => (h.command || '').includes(needle));
+  if (found) return repairStale(found, needle, command);
   list.push({ type: 'command', command });
   console.log(`   + hook ${needle}`);
 }
